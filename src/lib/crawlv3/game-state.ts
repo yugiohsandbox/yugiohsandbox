@@ -217,6 +217,15 @@ export function applyConfigDefaultsToPlayers(game: Crawlv3Game) {
   }
 }
 
+function clearDeckSelections(game: Crawlv3Game) {
+  game.deckSelections.player1 = null
+  game.deckSelections.player2 = null
+}
+
+function areConfigsEqual(left: Crawlv3CatalogConfig, right: Crawlv3CatalogConfig) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
 export function completeCrawlv3Game(game: Crawlv3Game) {
   game.status = 'lobby'
   game.cards = {}
@@ -234,7 +243,12 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
 
   switch (action.type) {
     case 'update_config': {
-      nextGame.config = cloneGame(action.config) as Crawlv3CatalogConfig
+      const previousConfig = normalizeConfigDefaults(nextGame.config)
+      const nextConfig = normalizeConfigDefaults(cloneGame(action.config) as Crawlv3CatalogConfig)
+      nextGame.config = nextConfig
+      if (!areConfigsEqual(previousConfig, nextConfig)) {
+        clearDeckSelections(nextGame)
+      }
       applyConfigDefaultsToPlayers(nextGame)
       break
     }
@@ -249,6 +263,7 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
     }
     case 'set_ready': {
       if (!actor || !nextGame.deckSelections[actor]) break
+      if (action.ready && !nextGame.deckSelections[actor].cards.length) break
       nextGame.deckSelections[actor].ready = action.ready
       break
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Crawlv3CardState } from '@/types/crawlv3'
+import { formatDisplayValue, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
 
 import cardBackImage from '@/assets/images/cards/cardback.png'
 
@@ -11,19 +12,6 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
-
-function hasDisplayValue(value: unknown) {
-  return value !== undefined && value !== null && String(value).trim().length > 0
-}
-
-function formatDisplayValue(value: unknown) {
-  return hasDisplayValue(value) ? String(value) : ''
-}
-
-function shouldShowCardStat(card: Crawlv3CardState, stat: 'atk' | 'def') {
-  const baseKey = stat === 'atk' ? 'baseAtk' : 'baseDef'
-  return hasDisplayValue(card[stat]) || hasDisplayValue(card[baseKey])
-}
 </script>
 
 <template>

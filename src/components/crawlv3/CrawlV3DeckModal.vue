@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import CrawlV3Card from '@/components/crawlv3/CrawlV3Card.vue'
 import CrawlV3CardPreviewModal from '@/components/crawlv3/CrawlV3CardPreviewModal.vue'
 import type { Crawlv3CardState } from '@/types/crawlv3'
+import { formatDisplayValue, getCardTags, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
 
 const props = defineProps<{
   title: string
@@ -59,23 +60,6 @@ const tooltipStyle = computed(() => {
     top: `${Math.min(tooltipPoint.value.y + 18, Math.max(0, viewportHeight - 260))}px`,
   }
 })
-
-function hasDisplayValue(value: unknown) {
-  return value !== undefined && value !== null && String(value).trim().length > 0
-}
-
-function formatDisplayValue(value: unknown) {
-  return hasDisplayValue(value) ? String(value) : ''
-}
-
-function getCardTags(card: Crawlv3CardState) {
-  return [card.race, card.damageType].filter(hasDisplayValue).map(String).join(' | ')
-}
-
-function shouldShowCardStat(card: Crawlv3CardState, stat: 'atk' | 'def') {
-  const baseKey = stat === 'atk' ? 'baseAtk' : 'baseDef'
-  return hasDisplayValue(card[stat]) || hasDisplayValue(card[baseKey])
-}
 
 function updateTooltip(card: Crawlv3CardState, event: MouseEvent) {
   tooltipCard.value = card
