@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'
+import { MinusIcon, PlusIcon } from '@heroicons/vue/20/solid'
 import { v4 as uuid } from 'uuid'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -194,11 +195,18 @@ const myDeckSelection = computed(() => {
 const isDeckReady = computed(() => !!myDeckSelection.value?.ready)
 const canEditDeckSelection = computed(() => !isDeckReady.value)
 
-const selectedCatalogIdSet = computed(() => new Set(localSelectionIds.value))
+const selectedCatalogCounts = computed(() =>
+  localSelectionIds.value.reduce<Record<string, number>>((counts, cardId) => {
+    counts[cardId] = (counts[cardId] ?? 0) + 1
+    return counts
+  }, {}),
+)
 
 const selectedCatalogCards = computed(() => {
-  const selectedIds = selectedCatalogIdSet.value
-  return catalogCards.value.filter((card) => selectedIds.has(card.id))
+  const cardsById = new Map(catalogCards.value.map((card) => [card.id, card]))
+  return localSelectionIds.value
+    .map((cardId) => cardsById.get(cardId))
+    .filter((card): card is Crawlv3CatalogCard => !!card)
 })
 
 const filteredCatalogCards = computed(() => {
@@ -601,14 +609,18 @@ async function reloadStatuses(config = game.value?.config) {
   }
 }
 
-function toggleCardSelection(cardId: string) {
+function addCardSelection(cardId: string) {
   if (!canEditDeckSelection.value) return
   selectionDirty.value = true
-  if (localSelectionIds.value.includes(cardId)) {
-    localSelectionIds.value = localSelectionIds.value.filter((id) => id !== cardId)
-    return
-  }
   localSelectionIds.value = [...localSelectionIds.value, cardId]
+}
+
+function removeCardSelection(cardId: string) {
+  if (!canEditDeckSelection.value) return
+  const removeIndex = localSelectionIds.value.lastIndexOf(cardId)
+  if (removeIndex === -1) return
+  selectionDirty.value = true
+  localSelectionIds.value = localSelectionIds.value.filter((_, index) => index !== removeIndex)
 }
 
 function confirmDeckSelection() {
@@ -1546,13 +1558,12 @@ onBeforeUnmount(() => {
 
           <div v-else class="mt-8 max-h-[clamp(34rem,58vw,56rem)] overflow-y-auto pr-2">
             <div class="grid [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))] gap-4">
-              <button
+              <div
                 v-for="(card, cardIndex) in filteredCatalogCards"
                 :key="`catalog-${card.id}-${cardIndex}`"
-                type="button"
-                class="overflow-hidden rounded-[1.4rem] border bg-white/5 text-left transition"
+                class="relative overflow-hidden rounded-[1.4rem] border bg-white/5 transition"
                 :class="
-                  selectedCatalogIdSet.has(card.id)
+                  selectedCatalogCounts[card.id]
                     ? 'border-amber-300/50 bg-amber-300/10'
                     : 'border-white/10 hover:border-white/25 hover:bg-white/10'
                 "
@@ -1560,32 +1571,60 @@ onBeforeUnmount(() => {
                 :title="
                   canEditDeckSelection ? cardSummary(card) : `${cardSummary(card)}\n\nUnready to change your selection.`
                 "
-                @click="toggleCardSelection(card.id)"
                 @contextmenu.prevent.stop="catalogPreviewCard = card"
               >
-                <div class="relative aspect-[63/88] overflow-hidden bg-black/20">
-                  <img v-if="card.imageUrl" :src="card.imageUrl" :alt="card.title" class="h-full w-full object-cover" />
-                  <div
-                    v-else
-                    class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-sm font-semibold text-amber-950"
-                  >
-                    {{ card.title }}
+                <button type="button" class="block w-full text-left" @click="addCardSelection(card.id)">
+                  <div class="relative aspect-[63/88] overflow-hidden bg-black/20">
+                    <img
+                      v-if="card.imageUrl"
+                      :src="card.imageUrl"
+                      :alt="card.title"
+                      class="h-full w-full object-cover"
+                    />
+                    <div
+                      v-else
+                      class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-sm font-semibold text-amber-950"
+                    >
+                      {{ card.title }}
+                    </div>
+                    <span
+                      v-if="selectedCatalogCounts[card.id]"
+                      class="absolute top-2 right-2 rounded-full bg-amber-300 px-2 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg"
+                    >
+                      x{{ selectedCatalogCounts[card.id] }}
+                    </span>
                   </div>
-                  <span
-                    v-if="selectedCatalogIdSet.has(card.id)"
-                    class="absolute top-2 right-2 rounded-full bg-amber-300 px-2 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg"
-                  >
-                    Selected
-                  </span>
-                </div>
 
-                <div class="p-3">
-                  <div class="min-w-0">
-                    <p class="truncate font-semibold">{{ card.title }}</p>
-                    <p class="mt-1 text-xs text-white/50">{{ card.race }} - {{ card.damageType }}</p>
+                  <div class="p-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-semibold">{{ card.title }}</p>
+                      <p class="mt-1 text-xs text-white/50">{{ card.race }} - {{ card.damageType }}</p>
+                    </div>
                   </div>
+                </button>
+
+                <div v-if="canEditDeckSelection" class="absolute top-2 left-2 flex gap-1">
+                  <button
+                    type="button"
+                    class="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-neutral-950/85 text-white shadow-lg transition hover:border-white/40 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    :disabled="!selectedCatalogCounts[card.id]"
+                    :aria-label="`Remove one ${card.title}`"
+                    :title="`Remove one ${card.title}`"
+                    @click.stop="removeCardSelection(card.id)"
+                  >
+                    <MinusIcon class="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    class="flex h-7 w-7 items-center justify-center rounded-full border border-amber-200/70 bg-amber-300 text-amber-950 shadow-lg transition hover:bg-amber-200"
+                    :aria-label="`Add one ${card.title}`"
+                    :title="`Add one ${card.title}`"
+                    @click.stop="addCardSelection(card.id)"
+                  >
+                    <PlusIcon class="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
         </section>
