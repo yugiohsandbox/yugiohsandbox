@@ -129,7 +129,15 @@ watch(
                 class="grid gap-3 rounded-2xl bg-black/20 px-4 py-3"
               >
                 <div class="flex items-center justify-between gap-4">
-                  <span>{{ option.name }}</span>
+                  <span class="group relative font-medium">
+                    {{ option.name }}
+                    <span
+                      v-if="option.description"
+                      class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                    >
+                      {{ option.description }}
+                    </span>
+                  </span>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
@@ -168,7 +176,15 @@ watch(
                 class="grid gap-3 rounded-2xl bg-black/20 px-4 py-3"
               >
                 <div class="flex items-center justify-between gap-4">
-                  <span>{{ option.name }}</span>
+                  <span class="group relative font-medium">
+                    {{ option.name }}
+                    <span
+                      v-if="option.description"
+                      class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                    >
+                      {{ option.description }}
+                    </span>
+                  </span>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"

@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore'
-import { MinusIcon, PlusIcon } from '@heroicons/vue/20/solid'
 import { v4 as uuid } from 'uuid'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -60,7 +59,10 @@ type DragState = {
   startY: number
   ghostX: number
   ghostY: number
+  pointerOffsetX: number
+  pointerOffsetY: number
   cardWidth: number
+  cardHeight: number
   active: boolean
 }
 
@@ -73,6 +75,7 @@ type TooltipState = {
 type OpenPileState = {
   owner: Crawlv3Player
   zone: PileZone
+  visibleCardIds: string[] | null
 }
 
 type CardStatusEntry = {
@@ -100,12 +103,13 @@ const buttonClasses = {
 const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
+const boardCardScaleStorageKey = 'crawlv3:board-card-scale'
 
 const gameId = ref<string | null>(null)
 const joinCode = ref(String(route.params.gameCode ?? ''))
 const loading = ref(false)
 const error = ref<string | null>(null)
-const boardCardScale = ref(1)
+const boardCardScale = ref(loadStoredBoardCardScale())
 const serverSnapshot = shallowRef<Crawlv3Game | null>(null)
 const pendingActions = shallowRef<PendingActionBatch[]>([])
 const sendQueue: PendingActionBatch[] = []
@@ -143,6 +147,10 @@ const statDrafts = ref<Record<Crawlv3Player, { lifePoints: string; actionPoints:
 
 const selectedAtk = ref('')
 const selectedDef = ref('')
+const focusedSelectedStat = ref<'atk' | 'def' | null>(null)
+const catalogTooltipCard = ref<Crawlv3CatalogCard | null>(null)
+const catalogTooltipPoint = ref<{ x: number; y: number } | null>(null)
+let errorTimer: ReturnType<typeof setTimeout> | null = null
 
 const myPlayer = computed<Crawlv3Player | null>(() => {
   if (!serverSnapshot.value || !userStore.user) return null
@@ -295,6 +303,7 @@ const catalogPreviewState = computed<Crawlv3CardState | null>(() => {
     category: card.category,
     race: card.race,
     damageType: card.damageType,
+    img: card.img,
     description: card.description,
     imageUrl: card.imageUrl,
     zone: 'deck',
@@ -322,15 +331,19 @@ const statusLabels = computed(() =>
   Object.fromEntries(statusDefinitions.value.map((status) => [status.id, status.name])),
 )
 
-const statusPreviewNames = computed(() => statusDefinitions.value.map((status) => status.name || status.id))
-
 const tooltipBuffs = computed(() => (tooltipCard.value ? getCardStatusEntries(tooltipCard.value, 'buff') : []))
 const tooltipDebuffs = computed(() => (tooltipCard.value ? getCardStatusEntries(tooltipCard.value, 'debuff') : []))
 const boardCardScaleLabel = computed(() => `${Math.round(boardCardScale.value * 100)}%`)
 
 const activePileCards = computed(() => {
   if (!openPile.value || !game.value) return []
-  return getZoneCards(game.value.cards, openPile.value.zone, openPile.value.owner)
+  const cards = getZoneCards(game.value.cards, openPile.value.zone, openPile.value.owner)
+  if (!openPile.value.visibleCardIds) return cards
+
+  const cardMap = new Map(cards.map((card) => [card.instanceId, card]))
+  return openPile.value.visibleCardIds
+    .map((instanceId) => cardMap.get(instanceId))
+    .filter((card): card is Crawlv3CardState => !!card)
 })
 
 const activePileInteractive = computed(() => !!openPile.value && openPile.value.owner === myPlayer.value)
@@ -370,9 +383,45 @@ const dragGhostStyle = computed(() => {
   }
 })
 
+const catalogTooltipStyle = computed(() => {
+  if (!catalogTooltipPoint.value) return {}
+
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
+
+  return {
+    left: `${Math.min(catalogTooltipPoint.value.x + 18, Math.max(0, viewportWidth - 360))}px`,
+    top: `${Math.min(catalogTooltipPoint.value.y + 18, Math.max(0, viewportHeight - 260))}px`,
+  }
+})
+
+function loadStoredBoardCardScale() {
+  if (typeof window === 'undefined') return 1
+  const storedValue = Number(window.localStorage.getItem(boardCardScaleStorageKey))
+  return Number.isFinite(storedValue) ? Math.min(1.5, Math.max(0.65, storedValue)) : 1
+}
+
+function withDefaultCatalogConfig(config: Crawlv3CatalogConfig): Crawlv3CatalogConfig {
+  const defaults = createDefaultCrawlv3Config()
+  return {
+    ...defaults,
+    ...config,
+    headers: {
+      ...defaults.headers,
+      ...config.headers,
+    },
+    statusHeaders: {
+      ...defaults.statusHeaders,
+      ...config.statusHeaders,
+    },
+  }
+}
+
 function clearTransientUi() {
   hoveredTooltip.value = null
   dragState.value = null
+  catalogTooltipCard.value = null
+  catalogTooltipPoint.value = null
 }
 
 function resetStatusDefinitions() {
@@ -674,6 +723,23 @@ function formatPositionLabel(rotated: boolean) {
   return rotated ? 'Defense Position' : 'Attack Position'
 }
 
+function hasDisplayValue(value: unknown) {
+  return value !== undefined && value !== null && String(value).trim().length > 0
+}
+
+function formatDisplayValue(value: unknown) {
+  return hasDisplayValue(value) ? String(value) : ''
+}
+
+function getCardTags(card: Pick<Crawlv3CardState | Crawlv3CatalogCard, 'race' | 'damageType'>) {
+  return [card.race, card.damageType].filter(hasDisplayValue).map(String).join(' | ')
+}
+
+function shouldShowCardStat(card: Crawlv3CardState, stat: 'atk' | 'def') {
+  const baseKey = stat === 'atk' ? 'baseAtk' : 'baseDef'
+  return hasDisplayValue(card[stat]) || hasDisplayValue(card[baseKey])
+}
+
 function getCardRenderFace(card: Crawlv3CardState) {
   if (!myPlayer.value) return card.zone !== 'hand' && card.faceUp
   if (card.zone === 'hand') return card.owner === myPlayer.value
@@ -717,6 +783,10 @@ function cardPositionStyle(card: Crawlv3CardState) {
   }
 }
 
+function clampHandX(value: number) {
+  return clampRatio(value, 0.5)
+}
+
 function selectCard(cardId: string) {
   selectedCardId.value = selectedCardId.value === cardId ? null : cardId
 }
@@ -729,6 +799,9 @@ function startCardDrag(card: Crawlv3CardState, event: PointerEvent) {
   if (!myPlayer.value || card.owner !== myPlayer.value || event.button !== 0) return
 
   const cardElement = event.currentTarget as HTMLElement | null
+  const rect = cardElement?.getBoundingClientRect()
+  const pointerOffsetX = rect ? event.clientX - rect.left : (cardElement?.offsetWidth ?? 0) / 2
+  const pointerOffsetY = rect ? event.clientY - rect.top : 0
 
   event.preventDefault()
   hoveredTooltip.value = null
@@ -736,9 +809,12 @@ function startCardDrag(card: Crawlv3CardState, event: PointerEvent) {
     instanceId: card.instanceId,
     startX: event.clientX,
     startY: event.clientY,
-    ghostX: event.clientX,
-    ghostY: event.clientY,
-    cardWidth: cardElement?.offsetWidth || cardElement?.getBoundingClientRect().width || 0,
+    ghostX: rect?.left ?? event.clientX - pointerOffsetX,
+    ghostY: rect?.top ?? event.clientY - pointerOffsetY,
+    pointerOffsetX,
+    pointerOffsetY,
+    cardWidth: cardElement?.offsetWidth || rect?.width || 0,
+    cardHeight: rect?.height || 0,
     active: false,
   }
 
@@ -746,7 +822,7 @@ function startCardDrag(card: Crawlv3CardState, event: PointerEvent) {
   window.addEventListener('pointerup', handlePointerUp)
 }
 
-function resolveDropTarget(clientX: number, clientY: number) {
+function resolveDropTarget(clientX: number, clientY: number, currentDrag?: DragState) {
   const elements = document.elementsFromPoint(clientX, clientY)
 
   for (const element of elements) {
@@ -761,8 +837,10 @@ function resolveDropTarget(clientX: number, clientY: number) {
       return { zone, owner }
     }
 
-    const rawX = clampRatio((clientX - rect.left) / rect.width)
-    const rawY = clampRatio((clientY - rect.top) / rect.height)
+    const centerX = currentDrag ? clientX - currentDrag.pointerOffsetX + currentDrag.cardWidth / 2 : clientX
+    const centerY = currentDrag ? clientY - currentDrag.pointerOffsetY + currentDrag.cardHeight / 2 : clientY
+    const rawX = clampRatio((centerX - rect.left) / rect.width)
+    const rawY = clampRatio((centerY - rect.top) / rect.height)
     const point = normalizeZonePoint(zone, rawX, rawY)
 
     return {
@@ -781,12 +859,17 @@ function handlePointerMove(event: PointerEvent) {
 
   const deltaX = event.clientX - dragState.value.startX
   const deltaY = event.clientY - dragState.value.startY
+  const nextActive = dragState.value.active || Math.sqrt(deltaX * deltaX + deltaY * deltaY) > 6
+
+  if (nextActive && !dragState.value.active) {
+    selectedCardId.value = dragState.value.instanceId
+  }
 
   dragState.value = {
     ...dragState.value,
-    ghostX: event.clientX,
-    ghostY: event.clientY,
-    active: dragState.value.active || Math.sqrt(deltaX * deltaX + deltaY * deltaY) > 6,
+    ghostX: event.clientX - dragState.value.pointerOffsetX,
+    ghostY: event.clientY - dragState.value.pointerOffsetY,
+    active: nextActive,
   }
 }
 
@@ -806,7 +889,7 @@ function handlePointerUp(event: PointerEvent) {
     return
   }
 
-  const target = resolveDropTarget(event.clientX, event.clientY)
+  const target = resolveDropTarget(event.clientX, event.clientY, currentDrag)
   if (!target || !myPlayer.value) return
 
   if (
@@ -836,9 +919,11 @@ function handlePointerUp(event: PointerEvent) {
 function defaultZonePosition(zone: Exclude<Crawlv3Zone, 'deck' | 'discard'>) {
   const zoneCards = zone === 'table' ? tableCards.value.length : myHandCards.value.length
   if (zone === 'hand') {
+    const rowOffset = Math.floor(zoneCards / 6) * 0.025
+    const randomOffset = (Math.random() - 0.5) * 0.055
     return {
-      x: clampRatio(0.18 + (zoneCards % 6) * 0.13, 0.5),
-      y: clampRatio(0.32 + Math.floor(zoneCards / 6) * 0.2, 5),
+      x: clampHandX(0.18 + (zoneCards % 6) * 0.13 + rowOffset + randomOffset),
+      y: 0.5,
     }
   }
 
@@ -952,17 +1037,33 @@ function resetActionPoints(player: Crawlv3Player) {
   commitPlayerStats(player, { actionPoints: game.value?.config.defaultActionPoints ?? 0 })
 }
 
-function saveSelectedStats() {
+function saveSelectedStat(stat: 'atk' | 'def') {
   if (!selectedOwnCard.value) return
+  if (!shouldShowCardStat(selectedOwnCard.value, stat)) return
+
+  const draftValue = stat === 'atk' ? selectedAtk.value : selectedDef.value
+  const baseValue = stat === 'atk' ? selectedOwnCard.value.baseAtk : selectedOwnCard.value.baseDef
+  const nextValue = draftValue.trim().length ? draftValue : formatDisplayValue(baseValue)
+  if (stat === 'atk') {
+    selectedAtk.value = nextValue
+  } else {
+    selectedDef.value = nextValue
+  }
+
+  if (nextValue === selectedOwnCard.value[stat]) return
 
   enqueueAction({
     type: 'patch_card',
     instanceId: selectedOwnCard.value.instanceId,
     patch: {
-      atk: selectedAtk.value,
-      def: selectedDef.value,
+      [stat]: nextValue,
     },
   })
+}
+
+function blurSelectedStat(stat: 'atk' | 'def') {
+  saveSelectedStat(stat)
+  focusedSelectedStat.value = null
 }
 
 function toggleSelectedFace() {
@@ -1022,15 +1123,13 @@ function saveSelectedStatuses(payload: { buffs: Record<string, number>; debuffs:
 function getCardStatusEntries(card: Crawlv3CardState, type: Crawlv3StatusType): CardStatusEntry[] {
   const source = type === 'buff' ? card.buffs : card.debuffs
 
-  return Object.entries(source)
-    .map(([id, value]) => ({
-      id,
-      name: statusDefinitionMap.value[id]?.name ?? id,
-      description: statusDefinitionMap.value[id]?.description ?? '',
-      type,
-      value,
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name))
+  return Object.entries(source).map(([id, value]) => ({
+    id,
+    name: statusDefinitionMap.value[id]?.name ?? id,
+    description: statusDefinitionMap.value[id]?.description ?? '',
+    type,
+    value,
+  }))
 }
 
 function updateTooltip(card: Crawlv3CardState, event: MouseEvent) {
@@ -1049,33 +1148,38 @@ function clearTooltip(card?: Crawlv3CardState) {
 }
 
 function openPileViewer(owner: Crawlv3Player, zone: PileZone) {
-  openPile.value = { owner, zone }
+  const cards = game.value ? getZoneCards(game.value.cards, zone, owner) : []
+  openPile.value = {
+    owner,
+    zone,
+    visibleCardIds: zone === 'deck' ? shuffleItems(cards).map((card) => card.instanceId) : null,
+  }
 }
 
 function pilePreviewImage(card: Crawlv3CardState | null) {
   return card?.imageUrl || ''
 }
 
-function cardSummary(card: Crawlv3CatalogCard) {
-  return [
-    card.title,
-    `ID: ${card.id}`,
-    `Cost: ${card.cost || '-'}`,
-    `ATK: ${card.atk || '-'}`,
-    `DEF: ${card.def || '-'}`,
-    card.category ? `Category: ${card.category}` : '',
-    card.race || card.damageType || '',
-    card.description || '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+function updateCatalogTooltip(card: Crawlv3CatalogCard, event: MouseEvent) {
+  catalogTooltipCard.value = card
+  catalogTooltipPoint.value = {
+    x: event.clientX,
+    y: event.clientY,
+  }
+}
+
+function clearCatalogTooltip(card?: Crawlv3CatalogCard) {
+  if (!card || catalogTooltipCard.value?.id === card.id) {
+    catalogTooltipCard.value = null
+    catalogTooltipPoint.value = null
+  }
 }
 
 watch(
   () => serverSnapshot.value?.config,
   (config) => {
     if (!config) return
-    configDraft.value = cloneGame(config)
+    configDraft.value = withDefaultCatalogConfig(cloneGame(config))
   },
   { immediate: true },
 )
@@ -1107,11 +1211,29 @@ watch(
 watch(
   () => selectedOwnCard.value,
   (card) => {
-    selectedAtk.value = card?.atk ?? ''
-    selectedDef.value = card?.def ?? ''
+    if (focusedSelectedStat.value !== 'atk') selectedAtk.value = card?.atk ?? ''
+    if (focusedSelectedStat.value !== 'def') selectedDef.value = card?.def ?? ''
   },
   { immediate: true },
 )
+
+watch(boardCardScale, (scale) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(boardCardScaleStorageKey, String(scale))
+})
+
+watch(error, (message) => {
+  if (errorTimer) {
+    clearTimeout(errorTimer)
+    errorTimer = null
+  }
+
+  if (!message) return
+  errorTimer = setTimeout(() => {
+    error.value = null
+    errorTimer = null
+  }, 5000)
+})
 
 watch(
   () => selectedCard.value,
@@ -1155,6 +1277,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   unsubscribeGame?.()
+  if (errorTimer) clearTimeout(errorTimer)
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', handlePointerUp)
 })
@@ -1314,6 +1437,7 @@ onBeforeUnmount(() => {
                     ['category', 'Category header'],
                     ['race', 'Race header'],
                     ['damageType', 'Damage type header'],
+                    ['img', 'Image header'],
                     ['description', 'Description header'],
                   ]"
                   :key="key"
@@ -1452,18 +1576,24 @@ onBeforeUnmount(() => {
                   <div>
                     <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Status Preview</p>
                     <p class="mt-1 text-sm text-white/55">
-                      {{ statusLoading ? 'Loading status list...' : `${statusPreviewNames.length} status names` }}
+                      {{ statusLoading ? 'Loading status list...' : `${statusDefinitions.length} status names` }}
                     </p>
                   </div>
                 </div>
 
                 <div class="mt-3 flex flex-wrap gap-2">
                   <span
-                    v-for="(statusName, statusIndex) in statusPreviewNames"
-                    :key="`status-preview-${statusIndex}-${statusName}`"
-                    class="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold text-white/80"
+                    v-for="status in statusDefinitions"
+                    :key="`status-preview-${status.id}`"
+                    class="group relative rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold text-white/80"
                   >
-                    {{ statusName }}
+                    {{ status.name || status.id }}
+                    <span
+                      v-if="status.description"
+                      class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-left text-xs leading-relaxed font-medium text-white/80 shadow-2xl group-hover:block"
+                    >
+                      {{ status.description }}
+                    </span>
                   </span>
                 </div>
 
@@ -1568,12 +1698,18 @@ onBeforeUnmount(() => {
                     : 'border-white/10 hover:border-white/25 hover:bg-white/10'
                 "
                 :aria-disabled="!canEditDeckSelection"
-                :title="
-                  canEditDeckSelection ? cardSummary(card) : `${cardSummary(card)}\n\nUnready to change your selection.`
-                "
                 @contextmenu.prevent.stop="catalogPreviewCard = card"
+                @mouseenter="updateCatalogTooltip(card, $event)"
+                @mousemove="updateCatalogTooltip(card, $event)"
+                @mouseleave="clearCatalogTooltip(card)"
               >
-                <button type="button" class="block w-full text-left" @click="addCardSelection(card.id)">
+                <button
+                  type="button"
+                  class="block w-full text-left disabled:cursor-not-allowed"
+                  :disabled="!canEditDeckSelection"
+                  :aria-label="canEditDeckSelection ? `Add ${card.title}` : 'Unready to change your selection'"
+                  @click="addCardSelection(card.id)"
+                >
                   <div class="relative aspect-[63/88] overflow-hidden bg-black/20">
                     <img
                       v-if="card.imageUrl"
@@ -1587,43 +1723,26 @@ onBeforeUnmount(() => {
                     >
                       {{ card.title }}
                     </div>
-                    <span
-                      v-if="selectedCatalogCounts[card.id]"
-                      class="absolute top-2 right-2 rounded-full bg-amber-300 px-2 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg"
-                    >
-                      x{{ selectedCatalogCounts[card.id] }}
-                    </span>
                   </div>
 
                   <div class="p-3">
                     <div class="min-w-0">
                       <p class="truncate font-semibold">{{ card.title }}</p>
-                      <p class="mt-1 text-xs text-white/50">{{ card.race }} - {{ card.damageType }}</p>
+                      <p v-if="getCardTags(card)" class="mt-1 text-xs text-white/50">{{ getCardTags(card) }}</p>
                     </div>
                   </div>
                 </button>
 
-                <div v-if="canEditDeckSelection" class="absolute top-2 left-2 flex gap-1">
-                  <button
-                    type="button"
-                    class="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-neutral-950/85 text-white shadow-lg transition hover:border-white/40 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-                    :disabled="!selectedCatalogCounts[card.id]"
-                    :aria-label="`Remove one ${card.title}`"
-                    :title="`Remove one ${card.title}`"
-                    @click.stop="removeCardSelection(card.id)"
-                  >
-                    <MinusIcon class="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-7 w-7 items-center justify-center rounded-full border border-amber-200/70 bg-amber-300 text-amber-950 shadow-lg transition hover:bg-amber-200"
-                    :aria-label="`Add one ${card.title}`"
-                    :title="`Add one ${card.title}`"
-                    @click.stop="addCardSelection(card.id)"
-                  >
-                    <PlusIcon class="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <button
+                  v-if="selectedCatalogCounts[card.id]"
+                  type="button"
+                  class="absolute top-2 right-2 rounded-full bg-amber-300 px-2.5 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="!canEditDeckSelection"
+                  :aria-label="`Remove one ${card.title}`"
+                  @click.stop="removeCardSelection(card.id)"
+                >
+                  Selected x{{ selectedCatalogCounts[card.id] }}
+                </button>
               </div>
             </div>
           </div>
@@ -1644,13 +1763,6 @@ onBeforeUnmount(() => {
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                @click="openPileViewer(myPlayer, 'deck')"
-              >
-                View Deck
-              </button>
-              <button
-                type="button"
                 class="rounded-full border border-amber-300/35 bg-amber-300/12 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/50 hover:bg-amber-300/18"
                 @click="completeGame"
               >
@@ -1668,34 +1780,32 @@ onBeforeUnmount(() => {
 
           <section class="space-y-4">
             <div class="grid gap-4 xl:grid-cols-3">
-              <div
-                class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-                data-crawlv3-drop-zone="deck"
-                :data-crawlv3-owner="opponentPlayer"
-              >
-                <div>
-                  <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent</p>
-                  <h2 class="mt-2 text-2xl font-semibold">{{ game.players[opponentPlayer]?.username }}</h2>
-                </div>
+              <div class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm">
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent</p>
+                <h2 class="mt-2 text-2xl font-semibold">{{ game.players[opponentPlayer]?.username }}</h2>
 
-                <p class="mt-4 text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Deck</p>
-                <div class="mt-4 flex items-center gap-4">
-                  <div class="relative h-28 w-20">
-                    <div
-                      v-if="!opponentDeckCards.length"
-                      class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
-                    />
-                    <img
-                      v-for="depth in Math.min(opponentDeckCards.length, 3)"
-                      :key="depth"
-                      :src="cardBackImage"
-                      alt="Deck pile"
-                      class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
-                      :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
-                    />
+                <div class="mt-4 space-y-3">
+                  <div class="space-y-2">
+                    <span class="mb-2 block text-sm text-white/60">Life Points</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <input
+                        v-model="statDrafts[opponentPlayer].lifePoints"
+                        type="number"
+                        readonly
+                        class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 outline-none"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <p class="text-2xl font-semibold">{{ opponentDeckCards.length }}</p>
+                  <div class="space-y-2">
+                    <span class="block text-sm text-white/60">Action Points</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <input
+                        v-model="statDrafts[opponentPlayer].actionPoints"
+                        type="number"
+                        readonly
+                        class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1704,18 +1814,10 @@ onBeforeUnmount(() => {
                 class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
                 data-crawlv3-drop-zone="discard"
                 :data-crawlv3-owner="opponentPlayer"
+                @contextmenu.prevent="openPileViewer(opponentPlayer, 'discard')"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Discard</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                    @click="openPileViewer(opponentPlayer, 'discard')"
-                  >
-                    Open
-                  </button>
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Discard</p>
                 </div>
 
                 <div class="mt-4 flex items-center gap-4">
@@ -1739,66 +1841,31 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <div class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm">
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Stats</p>
-
-                <div class="mt-4 space-y-3">
-                  <div class="space-y-2">
-                    <span class="mb-2 block text-sm text-white/60">Life Points</span>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <input
-                        v-model="statDrafts[opponentPlayer].lifePoints"
-                        type="number"
-                        class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                        @keyup.enter="savePlayerStats(opponentPlayer)"
-                        @blur="savePlayerStats(opponentPlayer)"
-                      />
-                      <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(opponentPlayer, -5)">
-                        -5
-                      </button>
-                      <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(opponentPlayer, -1)">
-                        -1
-                      </button>
-                      <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(opponentPlayer, 1)">
-                        +1
-                      </button>
-                      <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(opponentPlayer, 5)">
-                        +5
-                      </button>
-                    </div>
+              <div
+                class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
+                data-crawlv3-drop-zone="deck"
+                :data-crawlv3-owner="opponentPlayer"
+              >
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Deck</p>
+                </div>
+                <div class="mt-4 flex items-center gap-4">
+                  <div class="relative h-28 w-20">
+                    <div
+                      v-if="!opponentDeckCards.length"
+                      class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
+                    />
+                    <img
+                      v-for="depth in Math.min(opponentDeckCards.length, 3)"
+                      :key="depth"
+                      :src="cardBackImage"
+                      alt="Deck pile"
+                      class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
+                      :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
+                    />
                   </div>
-                  <div class="space-y-2">
-                    <span class="block text-sm text-white/60">Action Points</span>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <input
-                        v-model="statDrafts[opponentPlayer].actionPoints"
-                        type="number"
-                        class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                        @keyup.enter="savePlayerStats(opponentPlayer)"
-                        @blur="savePlayerStats(opponentPlayer)"
-                      />
-                      <button
-                        type="button"
-                        class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                        @click="adjustActionPoints(opponentPlayer, -1)"
-                      >
-                        -1
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                        @click="adjustActionPoints(opponentPlayer, 1)"
-                      >
-                        +1
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                        @click="resetActionPoints(opponentPlayer)"
-                      >
-                        Reset
-                      </button>
-                    </div>
+                  <div>
+                    <p class="text-2xl font-semibold">{{ opponentDeckCards.length }}</p>
                   </div>
                 </div>
               </div>
@@ -1994,18 +2061,10 @@ onBeforeUnmount(() => {
                 class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
                 data-crawlv3-drop-zone="discard"
                 :data-crawlv3-owner="myPlayer"
+                @contextmenu.prevent="openPileViewer(myPlayer, 'discard')"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Discard</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-200"
-                    @click="openPileViewer(myPlayer, 'discard')"
-                  >
-                    Open
-                  </button>
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Discard</p>
                 </div>
 
                 <div class="mt-4 flex items-center gap-4">
@@ -2050,18 +2109,10 @@ onBeforeUnmount(() => {
                 class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
                 data-crawlv3-drop-zone="deck"
                 :data-crawlv3-owner="myPlayer"
+                @contextmenu.prevent="openPileViewer(myPlayer, 'deck')"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Deck</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-full bg-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-200"
-                    @click="openPileViewer(myPlayer, 'deck')"
-                  >
-                    Open
-                  </button>
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Deck</p>
                 </div>
                 <div class="mt-4 flex items-center gap-4">
                   <div class="relative h-28 w-20">
@@ -2125,37 +2176,41 @@ onBeforeUnmount(() => {
               {{ formatPositionLabel(selectedOwnCard.rotated) }}
             </p>
 
-            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-              <label class="block">
+            <div
+              v-if="shouldShowCardStat(selectedOwnCard, 'atk') || shouldShowCardStat(selectedOwnCard, 'def')"
+              class="mt-4 grid gap-3 sm:grid-cols-2"
+            >
+              <label v-if="shouldShowCardStat(selectedOwnCard, 'atk')" class="block">
                 <span class="mb-2 block text-sm text-white/60">ATK</span>
                 <input
                   v-model="selectedAtk"
                   type="text"
                   class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                  @keyup.enter="saveSelectedStats"
-                  @blur="saveSelectedStats"
+                  @focus="focusedSelectedStat = 'atk'"
+                  @keyup.enter="saveSelectedStat('atk')"
+                  @blur="blurSelectedStat('atk')"
                 />
               </label>
-              <label class="block">
+              <label v-if="shouldShowCardStat(selectedOwnCard, 'def')" class="block">
                 <span class="mb-2 block text-sm text-white/60">DEF</span>
                 <input
                   v-model="selectedDef"
                   type="text"
                   class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                  @keyup.enter="saveSelectedStats"
-                  @blur="saveSelectedStats"
+                  @focus="focusedSelectedStat = 'def'"
+                  @keyup.enter="saveSelectedStat('def')"
+                  @blur="blurSelectedStat('def')"
                 />
               </label>
             </div>
 
             <div class="mt-4 flex flex-wrap gap-2">
-              <button type="button" :class="buttonClasses.flip" @click="toggleSelectedFace">
-                {{ selectedOwnCard.faceUp ? 'Flip Face Down' : 'Flip Face Up' }}
-              </button>
+              <button type="button" :class="buttonClasses.flip" @click="toggleSelectedFace">Flip card</button>
               <button type="button" :class="buttonClasses.position" @click="toggleSelectedRotation">
-                {{ selectedOwnCard.rotated ? 'Switch to Attack Position' : 'Switch to Defense Position' }}
+                Switch position
               </button>
               <button
+                v-if="selectedOwnCard.zone !== 'hand'"
                 type="button"
                 :class="buttonClasses.hand"
                 @click="moveCardToZone(selectedOwnCard.instanceId, 'hand')"
@@ -2163,6 +2218,7 @@ onBeforeUnmount(() => {
                 Move to Hand
               </button>
               <button
+                v-if="selectedOwnCard.zone !== 'table'"
                 type="button"
                 :class="buttonClasses.table"
                 @click="moveCardToZone(selectedOwnCard.instanceId, 'table')"
@@ -2170,6 +2226,7 @@ onBeforeUnmount(() => {
                 Move to Table
               </button>
               <button
+                v-if="selectedOwnCard.zone !== 'deck'"
                 type="button"
                 :class="buttonClasses.deck"
                 @click="moveCardToZone(selectedOwnCard.instanceId, 'deck')"
@@ -2177,6 +2234,7 @@ onBeforeUnmount(() => {
                 Move to Deck
               </button>
               <button
+                v-if="selectedOwnCard.zone !== 'discard'"
                 type="button"
                 :class="buttonClasses.discard"
                 @click="moveCardToZone(selectedOwnCard.instanceId, 'discard')"
@@ -2188,7 +2246,7 @@ onBeforeUnmount(() => {
                 class="rounded-full bg-amber-300 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
                 @click="statusCardId = selectedOwnCard.instanceId"
               >
-                Buffs / Debuffs
+                Modifiers
               </button>
             </div>
 
@@ -2234,8 +2292,8 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="dragState && game?.cards[dragState.instanceId]"
-      class="pointer-events-none fixed z-[999] -translate-x-1/2 -translate-y-1/2"
+      v-if="dragState?.active && game?.cards[dragState.instanceId]"
+      class="pointer-events-none fixed z-[999]"
       :style="dragGhostStyle"
     >
       <CrawlV3Card
@@ -2249,18 +2307,52 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div
+        v-if="catalogTooltipCard && catalogTooltipPoint"
+        class="pointer-events-none fixed z-[1000] max-w-sm rounded-[1.25rem] border border-white/10 bg-neutral-950/95 p-4 text-sm text-white shadow-2xl backdrop-blur-sm"
+        :style="catalogTooltipStyle"
+      >
+        <h3 class="text-lg font-semibold">{{ catalogTooltipCard.title }}</h3>
+        <p v-if="hasDisplayValue(catalogTooltipCard.category)" class="mt-1 text-white/60">
+          {{ catalogTooltipCard.category }}
+        </p>
+        <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-white/55">
+          <span v-if="hasDisplayValue(catalogTooltipCard.cost)"
+            >Cost <span class="text-white">{{ catalogTooltipCard.cost }}</span></span
+          >
+          <span v-if="hasDisplayValue(catalogTooltipCard.atk)"
+            >ATK <span class="text-base font-bold text-white">{{ catalogTooltipCard.atk }}</span></span
+          >
+          <span v-if="hasDisplayValue(catalogTooltipCard.def)"
+            >DEF <span class="text-base font-bold text-white">{{ catalogTooltipCard.def }}</span></span
+          >
+        </div>
+        <p v-if="getCardTags(catalogTooltipCard)" class="mt-1 text-white/55">{{ getCardTags(catalogTooltipCard) }}</p>
+        <p class="mt-3 whitespace-pre-wrap text-white/82">
+          {{ catalogTooltipCard.description || 'No description provided.' }}
+        </p>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
         v-if="tooltipCard && hoveredTooltip"
         class="pointer-events-none fixed z-[1000] max-w-sm rounded-[1.25rem] border border-white/10 bg-neutral-950/95 p-4 text-sm text-white shadow-2xl backdrop-blur-sm"
         :style="tooltipStyle"
       >
         <h3 class="text-lg font-semibold">{{ tooltipCard.title }}</h3>
-        <p class="mt-1 text-white/60">{{ tooltipCard.category || '-' }}</p>
+        <p v-if="hasDisplayValue(tooltipCard.category)" class="mt-1 text-white/60">{{ tooltipCard.category }}</p>
         <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-white/55">
-          <span>Cost {{ tooltipCard.cost || '-' }}</span>
-          <span>ATK <span class="text-base font-bold text-white">{{ tooltipCard.atk || '-' }}</span></span>
-          <span>DEF <span class="text-base font-bold text-white">{{ tooltipCard.def || '-' }}</span></span>
+          <span v-if="hasDisplayValue(tooltipCard.cost)"
+            >Cost <span class="text-white">{{ tooltipCard.cost }}</span></span
+          >
+          <span v-if="shouldShowCardStat(tooltipCard, 'atk')"
+            >ATK <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.atk) }}</span></span
+          >
+          <span v-if="shouldShowCardStat(tooltipCard, 'def')"
+            >DEF <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.def) }}</span></span
+          >
         </div>
-        <p class="mt-1 text-white/55">{{ tooltipCard.race || tooltipCard.damageType || 'No tags' }}</p>
+        <p v-if="getCardTags(tooltipCard)" class="mt-1 text-white/55">{{ getCardTags(tooltipCard) }}</p>
         <p class="mt-3 whitespace-pre-wrap text-white/82">
           {{ tooltipCard.description || 'No description provided.' }}
         </p>

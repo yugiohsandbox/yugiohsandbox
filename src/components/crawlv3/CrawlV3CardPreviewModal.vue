@@ -11,6 +11,19 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+function hasDisplayValue(value: unknown) {
+  return value !== undefined && value !== null && String(value).trim().length > 0
+}
+
+function formatDisplayValue(value: unknown) {
+  return hasDisplayValue(value) ? String(value) : ''
+}
+
+function shouldShowCardStat(card: Crawlv3CardState, stat: 'atk' | 'def') {
+  const baseKey = stat === 'atk' ? 'baseAtk' : 'baseDef'
+  return hasDisplayValue(card[stat]) || hasDisplayValue(card[baseKey])
+}
 </script>
 
 <template>
@@ -29,31 +42,33 @@ const emit = defineEmits<{
         <div class="rounded-[1.75rem] border border-white/10 bg-neutral-950/90 p-6 text-white shadow-2xl" @click.stop>
           <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Card Preview</p>
           <h2 class="mt-3 text-3xl font-semibold">{{ showFace ? card.title : 'Face-down card' }}</h2>
-          <p v-if="showFace" class="mt-2 text-lg text-white/60">{{ card.category || '-' }}</p>
+          <p v-if="showFace && hasDisplayValue(card.category)" class="mt-2 text-lg text-white/60">
+            {{ card.category }}
+          </p>
 
           <div v-if="showFace" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-2xl bg-white/5 p-3">
+            <div v-if="hasDisplayValue(card.cost)" class="rounded-2xl bg-white/5 p-3">
               <p class="text-xs text-white/50 uppercase">Cost</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.cost || '-' }}</p>
+              <p class="mt-1 text-lg font-semibold">{{ card.cost }}</p>
             </div>
-            <div class="rounded-2xl bg-white/5 p-3">
+            <div v-if="shouldShowCardStat(card, 'atk')" class="rounded-2xl bg-white/5 p-3">
               <p class="text-xs text-white/50 uppercase">ATK</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.atk || '-' }}</p>
+              <p class="mt-1 text-lg font-semibold">{{ formatDisplayValue(card.atk) }}</p>
             </div>
-            <div class="rounded-2xl bg-white/5 p-3">
+            <div v-if="shouldShowCardStat(card, 'def')" class="rounded-2xl bg-white/5 p-3">
               <p class="text-xs text-white/50 uppercase">DEF</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.def || '-' }}</p>
+              <p class="mt-1 text-lg font-semibold">{{ formatDisplayValue(card.def) }}</p>
             </div>
-            <div class="rounded-2xl bg-white/5 p-3">
+            <div v-if="hasDisplayValue(card.race)" class="rounded-2xl bg-white/5 p-3">
               <p class="text-xs text-white/50 uppercase">Race</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.race || '-' }}</p>
+              <p class="mt-1 text-lg font-semibold">{{ card.race }}</p>
             </div>
           </div>
 
           <div v-if="showFace" class="mt-6 space-y-3">
-            <div>
+            <div v-if="hasDisplayValue(card.damageType)">
               <p class="text-xs text-white/50 uppercase">Damage Type</p>
-              <p class="mt-1 text-lg font-medium">{{ card.damageType || '-' }}</p>
+              <p class="mt-1 text-lg font-medium">{{ card.damageType }}</p>
             </div>
             <div>
               <p class="text-xs text-white/50 uppercase">Description</p>

@@ -12,6 +12,7 @@ export interface Crawlv3CatalogHeaders {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
 }
 
@@ -42,6 +43,7 @@ export interface Crawlv3CatalogCard {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
   imageUrl: string
 }
@@ -79,6 +81,7 @@ export interface Crawlv3CardState {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
   imageUrl: string
   zone: Crawlv3Zone

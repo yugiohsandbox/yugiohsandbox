@@ -72,6 +72,24 @@ export function sanitizeStatusRecord(record: Record<string, number> | undefined)
   return Object.fromEntries(entries)
 }
 
+function shuffleItems<T>(items: T[]): T[] {
+  const nextItems = [...items]
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const current = nextItems[index]
+    nextItems[index] = nextItems[swapIndex]
+    nextItems[swapIndex] = current
+  }
+  return nextItems
+}
+
+function resetCardModifiers(card: Crawlv3CardState) {
+  card.atk = card.baseAtk
+  card.def = card.baseDef
+  card.buffs = {}
+  card.debuffs = {}
+}
+
 export function getZoneCards(
   cards: Record<string, Crawlv3CardState>,
   zone: Crawlv3Zone,
@@ -130,6 +148,7 @@ function applyDeckOrder(cards: Record<string, Crawlv3CardState>, owner: Crawlv3P
     card.order = index
     card.faceUp = false
     card.rotated = false
+    resetCardModifiers(card)
   })
 }
 
@@ -145,7 +164,7 @@ export function selectionToCardInstances(
   owner: Crawlv3Player,
   createInstanceId: () => string,
 ): Record<string, Crawlv3CardState> {
-  const cards = selection.cards.reduce<Record<string, Crawlv3CardState>>((accumulator, card, index) => {
+  const cards = shuffleItems(selection.cards).reduce<Record<string, Crawlv3CardState>>((accumulator, card, index) => {
     const instanceId = createInstanceId()
     accumulator[instanceId] = createCardInstance(card, owner, instanceId, index)
     return accumulator
@@ -173,6 +192,7 @@ export function createCardInstance(
     category: card.category,
     race: card.race,
     damageType: card.damageType,
+    img: card.img,
     description: card.description,
     imageUrl: card.imageUrl,
     zone: 'deck',
@@ -250,6 +270,7 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
         card.order = getNextPileOrder(nextGame.cards, action.zone, actor)
         card.faceUp = action.zone === 'discard'
         card.rotated = false
+        resetCardModifiers(card)
       }
       break
     }

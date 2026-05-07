@@ -117,19 +117,22 @@ export function parseImageOverrides(overridesText: string): Record<string, strin
   return map
 }
 
-export function resolveCatalogCardImage(cardId: string, config: Crawlv3CatalogConfig): string {
+export function resolveCatalogCardImage(cardId: string, img: string, config: Crawlv3CatalogConfig): string {
   const overrides = parseImageOverrides(config.imageOverridesText)
   if (overrides[cardId]) return overrides[cardId]
 
   if (!config.imageUrlTemplate.trim()) return ''
 
+  const imageId = img.trim()
+  if (!imageId) return ''
+
   return config.imageUrlTemplate.includes('{id}')
-    ? config.imageUrlTemplate.split('{id}').join(cardId)
+    ? config.imageUrlTemplate.split('{id}').join(imageId)
     : config.imageUrlTemplate
 }
 
-function getMappedValue(row: Record<string, string>, headerName: string): string {
-  if (!headerName.trim()) return ''
+function getMappedValue(row: Record<string, string>, headerName?: string): string {
+  if (!headerName?.trim()) return ''
   return row[headerName.trim()] ?? ''
 }
 
@@ -141,6 +144,7 @@ export function normalizeCatalogCards(
     .map((row) => {
       const id = getMappedValue(row, config.headers.id).trim()
       const title = getMappedValue(row, config.headers.title).trim()
+      const img = getMappedValue(row, config.headers.img || 'card_art').trim()
 
       return {
         id,
@@ -151,8 +155,9 @@ export function normalizeCatalogCards(
         category: getMappedValue(row, config.headers.category).trim(),
         race: getMappedValue(row, config.headers.race).trim(),
         damageType: getMappedValue(row, config.headers.damageType).trim(),
+        img,
         description: getMappedValue(row, config.headers.description).trim(),
-        imageUrl: resolveCatalogCardImage(id, config),
+        imageUrl: resolveCatalogCardImage(id, img, config),
       }
     })
     .filter((card) => card.id.length > 0 && card.title.length > 0)

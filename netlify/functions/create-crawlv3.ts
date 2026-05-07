@@ -14,6 +14,7 @@ interface Crawlv3CatalogHeaders {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
 }
 
@@ -79,6 +80,7 @@ function createDefaultConfig(): Crawlv3CatalogConfig {
       category: '',
       race: '',
       damageType: '',
+      img: 'card_art',
       description: '',
     },
     imageUrlTemplate: '',
@@ -109,6 +111,7 @@ function sanitizeConfig(config: Crawlv3CatalogConfig | undefined): Crawlv3Catalo
       category: config?.headers?.category?.trim() ?? fallback.headers.category,
       race: config?.headers?.race?.trim() ?? fallback.headers.race,
       damageType: config?.headers?.damageType?.trim() ?? fallback.headers.damageType,
+      img: config?.headers?.img?.trim() ?? fallback.headers.img,
       description: config?.headers?.description?.trim() ?? fallback.headers.description,
     },
     imageUrlTemplate: config?.imageUrlTemplate?.trim() ?? fallback.imageUrlTemplate,

@@ -16,6 +16,7 @@ interface Crawlv3CatalogHeaders {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
 }
 
@@ -46,6 +47,7 @@ interface Crawlv3CatalogCard {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
   imageUrl: string
 }
@@ -76,6 +78,7 @@ interface Crawlv3CardState {
   category: string
   race: string
   damageType: string
+  img: string
   description: string
   imageUrl: string
   zone: Crawlv3Zone
@@ -120,6 +123,7 @@ function createDefaultConfig(): Crawlv3CatalogConfig {
       category: '',
       race: '',
       damageType: '',
+      img: 'card_art',
       description: '',
     },
     imageUrlTemplate: '',
@@ -211,6 +215,7 @@ function sanitizeConfig(config: Crawlv3CatalogConfig | undefined): Crawlv3Catalo
       category: config?.headers?.category?.trim() ?? fallback.headers.category,
       race: config?.headers?.race?.trim() ?? fallback.headers.race,
       damageType: config?.headers?.damageType?.trim() ?? fallback.headers.damageType,
+      img: config?.headers?.img?.trim() ?? fallback.headers.img,
       description: config?.headers?.description?.trim() ?? fallback.headers.description,
     },
     imageUrlTemplate: config?.imageUrlTemplate?.trim() ?? fallback.imageUrlTemplate,
@@ -241,6 +246,7 @@ function sanitizeCard(card: Crawlv3CatalogCard): Crawlv3CatalogCard {
     category: card.category?.trim() ?? '',
     race: card.race?.trim() ?? '',
     damageType: card.damageType?.trim() ?? '',
+    img: card.img?.trim() ?? '',
     description: card.description?.trim() ?? '',
     imageUrl: card.imageUrl?.trim() ?? '',
   }
@@ -252,6 +258,24 @@ function sanitizeStatusRecord(record: Record<string, number> | undefined) {
     .filter(([key, value]) => key.length > 0 && Number.isFinite(value) && value !== 0)
 
   return Object.fromEntries(entries)
+}
+
+function shuffleItems<T>(items: T[]): T[] {
+  const nextItems = [...items]
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const current = nextItems[index]
+    nextItems[index] = nextItems[swapIndex]
+    nextItems[swapIndex] = current
+  }
+  return nextItems
+}
+
+function resetCardModifiers(card: Crawlv3CardState) {
+  card.atk = card.baseAtk
+  card.def = card.baseDef
+  card.buffs = {}
+  card.debuffs = {}
 }
 
 function getPlayerKey(game: Crawlv3Game, uid: string): Crawlv3Player | null {
@@ -304,6 +328,7 @@ function createCardInstance(card: Crawlv3CatalogCard, owner: Crawlv3Player, orde
     category: card.category,
     race: card.race,
     damageType: card.damageType,
+    img: card.img,
     description: card.description,
     imageUrl: card.imageUrl,
     zone: 'deck',
@@ -325,7 +350,7 @@ function initializeGameCards(game: Crawlv3Game) {
     const selection = game.deckSelections[playerKey]
     if (!selection) return
 
-    selection.cards.map(sanitizeCard).forEach((card, index) => {
+    shuffleItems(selection.cards.map(sanitizeCard)).forEach((card, index) => {
       const instance = createCardInstance(card, playerKey, index)
       cards[instance.instanceId] = instance
     })
@@ -367,6 +392,7 @@ function applyDeckOrder(game: Crawlv3Game, playerKey: Crawlv3Player, orderedCard
     card.order = index
     card.faceUp = false
     card.rotated = false
+    resetCardModifiers(card)
   })
 }
 
@@ -432,6 +458,7 @@ function handleActiveAction(game: Crawlv3Game, action: Crawlv3Action, playerKey:
         card.order = getNextPileOrder(game.cards, action.zone, playerKey)
         card.faceUp = action.zone === 'discard'
         card.rotated = false
+        resetCardModifiers(card)
       }
       return { success: true }
     }

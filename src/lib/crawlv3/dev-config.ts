@@ -13,6 +13,7 @@ export const CRAWLV3_DEV_CONFIG: { defaultRoomConfig: Crawlv3CatalogConfig } = {
       category: 'category',
       race: 'race',
       damageType: 'type',
+      img: 'card_art',
       description: 'description',
     },
     imageUrlTemplate: 'https://yugioh-simulator.s3.eu-west-2.amazonaws.com/cards/{id}.png',

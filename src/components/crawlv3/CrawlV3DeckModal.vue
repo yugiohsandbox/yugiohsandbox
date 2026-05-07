@@ -24,6 +24,8 @@ const emit = defineEmits<{
 
 const search = ref('')
 const previewCard = ref<Crawlv3CardState | null>(null)
+const tooltipCard = ref<Crawlv3CardState | null>(null)
+const tooltipPoint = ref<{ x: number; y: number } | null>(null)
 
 const uniqueCards = computed(() => {
   const seen = new Set<string>()
@@ -45,6 +47,50 @@ const filteredCards = computed(() => {
       .includes(query),
   )
 })
+
+const tooltipStyle = computed(() => {
+  if (!tooltipPoint.value) return {}
+
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
+
+  return {
+    left: `${Math.min(tooltipPoint.value.x + 18, Math.max(0, viewportWidth - 360))}px`,
+    top: `${Math.min(tooltipPoint.value.y + 18, Math.max(0, viewportHeight - 260))}px`,
+  }
+})
+
+function hasDisplayValue(value: unknown) {
+  return value !== undefined && value !== null && String(value).trim().length > 0
+}
+
+function formatDisplayValue(value: unknown) {
+  return hasDisplayValue(value) ? String(value) : ''
+}
+
+function getCardTags(card: Crawlv3CardState) {
+  return [card.race, card.damageType].filter(hasDisplayValue).map(String).join(' | ')
+}
+
+function shouldShowCardStat(card: Crawlv3CardState, stat: 'atk' | 'def') {
+  const baseKey = stat === 'atk' ? 'baseAtk' : 'baseDef'
+  return hasDisplayValue(card[stat]) || hasDisplayValue(card[baseKey])
+}
+
+function updateTooltip(card: Crawlv3CardState, event: MouseEvent) {
+  tooltipCard.value = card
+  tooltipPoint.value = {
+    x: event.clientX,
+    y: event.clientY,
+  }
+}
+
+function clearTooltip(card?: Crawlv3CardState) {
+  if (!card || tooltipCard.value?.instanceId === card.instanceId) {
+    tooltipCard.value = null
+    tooltipPoint.value = null
+  }
+}
 
 const buttonClasses = {
   hand: 'rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-1.5 text-xs font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
@@ -94,7 +140,9 @@ const buttonClasses = {
               v-for="card in filteredCards"
               :key="card.instanceId"
               class="rounded-[1.5rem] border border-white/10 bg-white/5 p-3 sm:w-[13rem]"
-              :title="`${card.title}\nID: ${card.cardId}\nCost: ${card.cost || '-'}\nATK: ${card.atk || '-'}\nDEF: ${card.def || '-'}\n${card.description || ''}`"
+              @mouseenter="updateTooltip(card, $event)"
+              @mousemove="updateTooltip(card, $event)"
+              @mouseleave="clearTooltip(card)"
             >
               <div class="flex justify-center">
                 <CrawlV3Card
@@ -138,6 +186,30 @@ const buttonClasses = {
       </div>
 
       <CrawlV3CardPreviewModal v-if="previewCard" :card="previewCard" :show-face="true" @close="previewCard = null" />
+
+      <div
+        v-if="tooltipCard && tooltipPoint"
+        class="pointer-events-none fixed z-[1001] max-w-sm rounded-[1.25rem] border border-white/10 bg-neutral-950/95 p-4 text-sm text-white shadow-2xl backdrop-blur-sm"
+        :style="tooltipStyle"
+      >
+        <h3 class="text-lg font-semibold">{{ tooltipCard.title }}</h3>
+        <p v-if="hasDisplayValue(tooltipCard.category)" class="mt-1 text-white/60">{{ tooltipCard.category }}</p>
+        <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-white/55">
+          <span v-if="hasDisplayValue(tooltipCard.cost)"
+            >Cost <span class="text-white">{{ tooltipCard.cost }}</span></span
+          >
+          <span v-if="shouldShowCardStat(tooltipCard, 'atk')"
+            >ATK <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.atk) }}</span></span
+          >
+          <span v-if="shouldShowCardStat(tooltipCard, 'def')"
+            >DEF <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.def) }}</span></span
+          >
+        </div>
+        <p v-if="getCardTags(tooltipCard)" class="mt-1 text-white/55">{{ getCardTags(tooltipCard) }}</p>
+        <p class="mt-3 whitespace-pre-wrap text-white/82">
+          {{ tooltipCard.description || 'No description provided.' }}
+        </p>
+      </div>
     </div>
   </Teleport>
 </template>
