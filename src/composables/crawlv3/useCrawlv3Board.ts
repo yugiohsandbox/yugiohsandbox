@@ -58,6 +58,7 @@ export function useCrawlv3Board({
       left: `${currentDrag.ghostX}px`,
       top: `${currentDrag.ghostY}px`,
       width: `${currentDrag.cardWidth}px`,
+      height: `${currentDrag.cardHeight}px`,
     }
   })
 
@@ -121,9 +122,11 @@ export function useCrawlv3Board({
     if (!myPlayer.value || card.owner !== myPlayer.value || event.button !== 0) return
 
     const cardElement = event.currentTarget as HTMLElement | null
-    const rect = cardElement?.getBoundingClientRect()
-    const pointerOffsetX = rect ? event.clientX - rect.left : (cardElement?.offsetWidth ?? 0) / 2
-    const pointerOffsetY = rect ? event.clientY - rect.top : 0
+    const cardShell = (event.target as HTMLElement | null)?.closest('[data-crawlv3-card-shell]') as HTMLElement | null
+    const positionElement = cardShell ?? cardElement
+    const rect = positionElement?.getBoundingClientRect()
+    const pointerOffsetX = rect ? event.clientX - rect.left : (positionElement?.offsetWidth ?? 0) / 2
+    const pointerOffsetY = rect ? event.clientY - rect.top : (positionElement?.offsetHeight ?? 0) / 2
 
     event.preventDefault()
     hoveredTooltip.value = null
@@ -135,8 +138,8 @@ export function useCrawlv3Board({
       ghostY: rect?.top ?? event.clientY - pointerOffsetY,
       pointerOffsetX,
       pointerOffsetY,
-      cardWidth: cardElement?.offsetWidth || rect?.width || 0,
-      cardHeight: rect?.height || 0,
+      cardWidth: rect?.width || positionElement?.offsetWidth || 0,
+      cardHeight: rect?.height || positionElement?.offsetHeight || 0,
       active: false,
     }
 

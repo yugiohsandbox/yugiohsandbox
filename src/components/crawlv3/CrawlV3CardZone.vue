@@ -41,7 +41,13 @@ const emit = defineEmits<{
 
     <p v-if="!cards.length" class="p-5 text-sm text-white/35">{{ emptyLabel }}</p>
 
-    <div v-for="card in cards" :key="card.instanceId" class="absolute" :style="cardPositionStyle(card)">
+    <div
+      v-for="card in cards"
+      :key="card.instanceId"
+      class="absolute"
+      :style="cardPositionStyle(card)"
+      data-crawlv3-card-shell
+    >
       <CrawlV3Card
         :card="card"
         fill-parent
