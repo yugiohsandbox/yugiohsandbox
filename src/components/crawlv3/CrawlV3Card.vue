@@ -42,7 +42,7 @@ const cardStyle = computed(() => ({
 <template>
   <button
     type="button"
-    class="relative block aspect-[63/88] overflow-hidden border bg-neutral-950 text-left shadow-[0_1rem_2.5rem_rgba(0,0,0,0.35)] transition-transform"
+    class="relative block aspect-[63/88] cursor-pointer overflow-hidden border bg-neutral-950 text-left shadow-[0_1rem_2.5rem_rgba(0,0,0,0.35)] transition-transform"
     :class="[
       selected ? 'border-amber-300 ring-2 ring-amber-300/80' : 'border-white/15',
       ghosted ? 'opacity-40' : 'opacity-100',
@@ -70,7 +70,7 @@ const cardStyle = computed(() => ({
           v-for="[key, value] in buffEntries"
           :key="`buff-${key}`"
           type="button"
-          class="rounded-full bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950"
+          class="cursor-pointer rounded-full bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950"
           @pointerdown.stop
           @click.stop="$emit('decrement-status', { kind: 'buff', key })"
         >
@@ -80,7 +80,7 @@ const cardStyle = computed(() => ({
           v-for="[key, value] in debuffEntries"
           :key="`debuff-${key}`"
           type="button"
-          class="rounded-full bg-rose-400/85 px-1.5 py-0.5 font-semibold text-rose-950"
+          class="cursor-pointer rounded-full bg-rose-400/85 px-1.5 py-0.5 font-semibold text-rose-950"
           @pointerdown.stop
           @click.stop="$emit('decrement-status', { kind: 'debuff', key })"
         >

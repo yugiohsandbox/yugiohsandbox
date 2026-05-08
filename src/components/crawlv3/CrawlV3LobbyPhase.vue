@@ -227,7 +227,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             </div>
             <button
               type="button"
-              class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+              class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
               @click="leaveRoom"
             >
               Leave
@@ -269,7 +269,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             <div class="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                 @click="configExpanded = !configExpanded"
               >
                 {{ configExpanded ? 'Hide Config' : 'Show Config' }}
@@ -277,7 +277,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               <button
                 v-if="isHost && configExpanded"
                 type="button"
-                class="rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
+                class="cursor-pointer rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
                 @click="updateConfig"
               >
                 Save Config
@@ -430,7 +430,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="!canPreviewCatalogDraft || catalogLoading"
                 @click="reloadCatalog(configDraft)"
               >
@@ -438,7 +438,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               </button>
               <button
                 type="button"
-                class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                 @click="reloadStatuses(configDraft)"
               >
                 Preview Status List
@@ -494,7 +494,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
           <div class="flex flex-wrap gap-3">
             <button
               type="button"
-              class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+              class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canEditDeckSelection"
               @click="selectAllCatalogCards"
             >
@@ -502,7 +502,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             </button>
             <button
               type="button"
-              class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+              class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canEditDeckSelection"
               @click="clearCatalogSelection"
             >
@@ -511,7 +511,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             <button
               v-if="!isDeckReady"
               type="button"
-              class="rounded-full border border-sky-300/35 bg-sky-300/15 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+              class="cursor-pointer rounded-full border border-sky-300/35 bg-sky-300/15 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/20 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canConfirmDeckSelection"
               @click="confirmDeckSelection"
             >
@@ -520,7 +520,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             <button
               v-if="myDeckSelection && !isDeckReady"
               type="button"
-              class="rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+              class="cursor-pointer rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canReadyUp"
               @click="setReadyState(true)"
             >
@@ -529,7 +529,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             <button
               v-if="myDeckSelection && isDeckReady"
               type="button"
-              class="rounded-full border border-rose-300/35 bg-rose-300/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/50 hover:bg-rose-300/20"
+              class="cursor-pointer rounded-full border border-rose-300/35 bg-rose-300/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/50 hover:bg-rose-300/20"
               @click="setReadyState(false)"
             >
               Unready
@@ -582,7 +582,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             >
               <button
                 type="button"
-                class="block w-full text-left disabled:cursor-not-allowed"
+                class="block w-full cursor-pointer text-left disabled:cursor-not-allowed"
                 :disabled="!canEditDeckSelection"
                 :aria-label="canEditDeckSelection ? `Add ${card.title}` : 'Unready to change your selection'"
                 @click="addCardSelection(card.id)"
@@ -608,7 +608,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               <button
                 v-if="selectedCatalogCounts[card.id]"
                 type="button"
-                class="absolute top-2 right-2 rounded-full bg-amber-300 px-2.5 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+                class="absolute top-2 right-2 cursor-pointer rounded-full bg-amber-300 px-2.5 py-1 text-[0.7rem] font-semibold text-amber-950 shadow-lg transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!canEditDeckSelection"
                 :aria-label="`Remove one ${card.title}`"
                 @click.stop="removeCardSelection(card.id)"
@@ -631,7 +631,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
           </div>
           <button
             type="button"
-            class="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            class="cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!canEditDeckSelection || !localSelectionIds.length"
             @click="clearCatalogSelection"
           >
@@ -651,7 +651,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             v-for="{ card, count } in selectedCatalogRows"
             :key="`selected-${card.id}`"
             type="button"
-            class="flex w-full items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 p-2 text-left transition hover:border-rose-300/35 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+            class="flex w-full cursor-pointer items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 p-2 text-left transition hover:border-rose-300/35 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!canEditDeckSelection"
             :aria-label="`Remove one ${card.title}`"
             @click="removeCardSelection(card.id)"

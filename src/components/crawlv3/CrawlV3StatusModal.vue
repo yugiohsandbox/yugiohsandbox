@@ -112,7 +112,7 @@ watch(
           </div>
           <button
             type="button"
-            class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+            class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
             @click="emit('close')"
           >
             Close
@@ -141,7 +141,7 @@ watch(
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
                       @click="decrement(localBuffs, option.id)"
                     >
                       -
@@ -149,14 +149,14 @@ watch(
                     <span class="min-w-10 text-center font-semibold">{{ localBuffs[option.id] ?? 0 }}</span>
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
                       @click="increment(localBuffs, option.id)"
                     >
                       +
                     </button>
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-xs font-semibold transition hover:bg-white/5"
                       @click="clearValue(localBuffs, option.id)"
                     >
                       Clear
@@ -188,7 +188,7 @@ watch(
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
                       @click="decrement(localDebuffs, option.id)"
                     >
                       -
@@ -196,14 +196,14 @@ watch(
                     <span class="min-w-10 text-center font-semibold">{{ localDebuffs[option.id] ?? 0 }}</span>
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-sm font-semibold transition hover:bg-white/5"
                       @click="increment(localDebuffs, option.id)"
                     >
                       +
                     </button>
                     <button
                       type="button"
-                      class="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold transition hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/10 px-3 py-1 text-xs font-semibold transition hover:bg-white/5"
                       @click="clearValue(localDebuffs, option.id)"
                     >
                       Clear
@@ -218,7 +218,7 @@ watch(
         <div class="mt-6 flex flex-wrap justify-end gap-3">
           <button
             type="button"
-            class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+            class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
             @click="
               emit('save', {
                 buffs: {},
@@ -230,7 +230,7 @@ watch(
           </button>
           <button
             type="button"
-            class="rounded-full bg-amber-300 px-5 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
+            class="cursor-pointer rounded-full bg-amber-300 px-5 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
             @click="
               emit('save', {
                 buffs: cleanRecord(localBuffs),

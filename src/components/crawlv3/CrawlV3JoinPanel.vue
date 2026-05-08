@@ -41,7 +41,7 @@ const joinCode = computed({
         />
         <button
           type="button"
-          class="rounded-[1.25rem] border border-sky-300/40 bg-sky-300/15 px-6 py-4 text-lg font-semibold text-sky-100 transition hover:border-sky-300/60 hover:bg-sky-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+          class="cursor-pointer rounded-[1.25rem] border border-sky-300/40 bg-sky-300/15 px-6 py-4 text-lg font-semibold text-sky-100 transition hover:border-sky-300/60 hover:bg-sky-300/20 disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="loading || !joinCode"
           @click="emit('join')"
         >
@@ -57,7 +57,7 @@ const joinCode = computed({
 
       <button
         type="button"
-        class="w-full rounded-[1.25rem] bg-amber-300 px-6 py-4 text-lg font-semibold text-amber-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+        class="w-full cursor-pointer rounded-[1.25rem] bg-amber-300 px-6 py-4 text-lg font-semibold text-amber-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="loading"
         @click="emit('create')"
       >

@@ -194,18 +194,19 @@ function pilePreviewImage(card: Crawlv3CardState | null) {
 
 const buttonClasses = {
   neutral:
-    'rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5',
-  hand: 'rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5',
+  hand: 'cursor-pointer rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   table:
-    'rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  deck: 'rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  deck: 'cursor-pointer rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   extraDeck:
-    'rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  icon: 'cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-xl leading-none font-normal text-white/85 transition hover:border-white/30 hover:bg-white/5',
   discard:
-    'rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  flip: 'rounded-full border border-emerald-300/35 bg-emerald-300/15 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/55 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  flip: 'cursor-pointer rounded-full border border-emerald-300/35 bg-emerald-300/15 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/55 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   position:
-    'rounded-full border border-orange-300/35 bg-orange-300/15 px-3 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-300/55 hover:bg-orange-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-orange-300/35 bg-orange-300/15 px-3 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-300/55 hover:bg-orange-300/25 disabled:cursor-not-allowed disabled:opacity-50',
 } as const
 </script>
 
@@ -223,14 +224,14 @@ const buttonClasses = {
           <div class="flex flex-wrap gap-3">
             <button
               type="button"
-              class="rounded-full border border-amber-300/35 bg-amber-300/12 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/50 hover:bg-amber-300/18"
+              class="cursor-pointer rounded-full border border-amber-300/35 bg-amber-300/12 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/50 hover:bg-amber-300/18"
               @click="completeGame"
             >
               Complete Game
             </button>
             <button
               type="button"
-              class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+              class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
               @click="leaveRoom"
             >
               Leave Game
@@ -396,10 +397,9 @@ const buttonClasses = {
             <div class="flex flex-wrap items-center justify-end gap-3">
               <div class="flex items-center gap-2">
                 <span class="text-sm text-white/45">Card Size {{ boardCardScaleLabel }}</span>
-                <button type="button" :class="buttonClasses.neutral" @click="adjustBoardCardScale(-0.1)">-</button>
-                <button type="button" :class="buttonClasses.neutral" @click="adjustBoardCardScale(0.1)">+</button>
+                <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(-0.1)">-</button>
+                <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(0.1)">+</button>
               </div>
-              <p class="text-sm text-white/45">Drag your cards anywhere in this zone</p>
             </div>
           </div>
 
@@ -493,21 +493,21 @@ const buttonClasses = {
                     />
                     <button
                       type="button"
-                      class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="adjustActionPoints(myPlayer, -1)"
                     >
                       -1
                     </button>
                     <button
                       type="button"
-                      class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="adjustActionPoints(myPlayer, 1)"
                     >
                       +1
                     </button>
                     <button
                       type="button"
-                      class="rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="resetActionPoints(myPlayer)"
                     >
                       Reset
@@ -600,7 +600,7 @@ const buttonClasses = {
                 </button>
                 <button
                   type="button"
-                  class="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                  class="cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                   @click="shuffleDeck"
                 >
                   Shuffle
@@ -741,7 +741,7 @@ const buttonClasses = {
             </button>
             <button
               type="button"
-              class="rounded-full bg-amber-300 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
+              class="cursor-pointer rounded-full bg-amber-300 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
               @click="statusCardId = selectedOwnCard.instanceId"
             >
               Modifiers

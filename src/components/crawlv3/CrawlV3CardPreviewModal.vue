@@ -34,30 +34,38 @@ const emit = defineEmits<{
             {{ card.category }}
           </p>
 
-          <div v-if="showFace" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div v-if="hasDisplayValue(card.cost)" class="rounded-2xl bg-white/5 p-3">
-              <p class="text-xs text-white/50 uppercase">Cost</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.cost }}</p>
+          <div v-if="showFace" class="mt-4 space-y-4">
+            <div
+              v-if="hasDisplayValue(card.race) || hasDisplayValue(card.damageType)"
+              class="flex flex-wrap items-start justify-start gap-x-8 gap-y-3 text-left"
+            >
+              <div v-if="hasDisplayValue(card.race)">
+                <p class="text-xs text-white/50 uppercase">Race</p>
+                <p class="mt-1 text-lg font-medium">{{ card.race }}</p>
+              </div>
+              <div v-if="hasDisplayValue(card.damageType)">
+                <p class="text-xs text-white/50 uppercase">Damage</p>
+                <p class="mt-1 text-lg font-medium">{{ card.damageType }}</p>
+              </div>
             </div>
-            <div v-if="shouldShowCardStat(card, 'atk')" class="rounded-2xl bg-white/5 p-3">
-              <p class="text-xs text-white/50 uppercase">ATK</p>
-              <p class="mt-1 text-lg font-semibold">{{ formatDisplayValue(card.atk) }}</p>
-            </div>
-            <div v-if="shouldShowCardStat(card, 'def')" class="rounded-2xl bg-white/5 p-3">
-              <p class="text-xs text-white/50 uppercase">DEF</p>
-              <p class="mt-1 text-lg font-semibold">{{ formatDisplayValue(card.def) }}</p>
-            </div>
-            <div v-if="hasDisplayValue(card.race)" class="rounded-2xl bg-white/5 p-3">
-              <p class="text-xs text-white/50 uppercase">Race</p>
-              <p class="mt-1 text-lg font-semibold">{{ card.race }}</p>
+
+            <div class="grid gap-2 sm:grid-cols-3">
+              <div v-if="hasDisplayValue(card.cost)" class="rounded-xl bg-white/5 p-2.5">
+                <p class="text-xs text-white/50 uppercase">Cost</p>
+                <p class="mt-1 text-base font-semibold">{{ card.cost }}</p>
+              </div>
+              <div v-if="shouldShowCardStat(card, 'atk')" class="rounded-xl bg-white/5 p-2.5">
+                <p class="text-xs text-white/50 uppercase">ATK</p>
+                <p class="mt-1 text-base font-semibold">{{ formatDisplayValue(card.atk) }}</p>
+              </div>
+              <div v-if="shouldShowCardStat(card, 'def')" class="rounded-xl bg-white/5 p-2.5">
+                <p class="text-xs text-white/50 uppercase">DEF</p>
+                <p class="mt-1 text-base font-semibold">{{ formatDisplayValue(card.def) }}</p>
+              </div>
             </div>
           </div>
 
           <div v-if="showFace" class="mt-6 space-y-3">
-            <div v-if="hasDisplayValue(card.damageType)">
-              <p class="text-xs text-white/50 uppercase">Damage Type</p>
-              <p class="mt-1 text-lg font-medium">{{ card.damageType }}</p>
-            </div>
             <div>
               <p class="text-xs text-white/50 uppercase">Description</p>
               <p class="mt-1 whitespace-pre-wrap text-white/88">{{ card.description || 'No description provided.' }}</p>
@@ -66,7 +74,7 @@ const emit = defineEmits<{
 
           <button
             type="button"
-            class="mt-8 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+            class="mt-8 cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
             @click="emit('close')"
           >
             Close

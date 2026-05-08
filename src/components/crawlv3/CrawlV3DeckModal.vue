@@ -79,14 +79,14 @@ function clearTooltip(card?: Crawlv3CardState) {
 }
 
 const buttonClasses = {
-  hand: 'rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-1.5 text-xs font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  hand: 'cursor-pointer rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-1.5 text-xs font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   table:
-    'rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  deck: 'rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  deck: 'cursor-pointer rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   extraDeck:
-    'rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-1.5 text-xs font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-1.5 text-xs font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   discard:
-    'rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+    'cursor-pointer rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
 } as const
 </script>
 
@@ -112,7 +112,7 @@ const buttonClasses = {
             />
             <button
               type="button"
-              class="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+              class="cursor-pointer rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
               @click="emit('close')"
             >
               Close
