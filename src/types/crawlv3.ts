@@ -1,6 +1,6 @@
 export type Crawlv3Player = 'player1' | 'player2'
 
-export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'discard'
+export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'extraDeck' | 'discard'
 export type Crawlv3StatusType = 'buff' | 'debuff'
 
 export interface Crawlv3CatalogHeaders {
@@ -30,6 +30,8 @@ export interface Crawlv3CatalogConfig {
   imageOverridesText: string
   statusCsvUrl: string
   statusHeaders: Crawlv3StatusHeaders
+  extraDeckCategoriesText: string
+  faceDownCategoriesText: string
   defaultLifePoints: number
   defaultActionPoints: number
 }

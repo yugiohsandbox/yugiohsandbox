@@ -16,7 +16,7 @@ export type QueuedCrawlv3Action =
   | Omit<Extract<Crawlv3Action, { type: 'shuffle_discard_into_deck' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'complete_game' }>, 'actionId'>
 
-export type Crawlv3PileZone = Extract<Crawlv3Zone, 'deck' | 'discard'>
+export type Crawlv3PileZone = Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard'>
 
 export type Crawlv3DragState = {
   instanceId: string

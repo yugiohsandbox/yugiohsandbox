@@ -43,6 +43,12 @@ const myDeckCards = computed(() =>
 const opponentDeckCards = computed(() =>
   game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'deck', opponentPlayer.value) : [],
 )
+const myExtraDeckCards = computed(() =>
+  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'extraDeck', myPlayer.value) : [],
+)
+const opponentExtraDeckCards = computed(() =>
+  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'extraDeck', opponentPlayer.value) : [],
+)
 const myDiscardCards = computed(() =>
   game.value && myPlayer.value ? getZoneCards(game.value.cards, 'discard', myPlayer.value) : [],
 )
@@ -178,7 +184,7 @@ function openPileViewer(owner: Crawlv3Player, zone: Crawlv3PileZone) {
   openPile.value = {
     owner,
     zone,
-    visibleCardIds: zone === 'deck' ? shuffleItems(cards).map((card) => card.instanceId) : null,
+    visibleCardIds: zone === 'deck' || zone === 'extraDeck' ? shuffleItems(cards).map((card) => card.instanceId) : null,
   }
 }
 
@@ -193,6 +199,8 @@ const buttonClasses = {
   table:
     'rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   deck: 'rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  extraDeck:
+    'rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   discard:
     'rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   flip: 'rounded-full border border-emerald-300/35 bg-emerald-300/15 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/55 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:opacity-50',
@@ -231,7 +239,7 @@ const buttonClasses = {
         </header>
 
         <section class="space-y-4">
-          <div class="grid gap-4 xl:grid-cols-3">
+          <div class="grid gap-4 xl:grid-cols-4">
             <div class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm">
               <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent</p>
               <h2 class="mt-2 text-2xl font-semibold">{{ game.players[opponentPlayer]?.username }}</h2>
@@ -318,6 +326,35 @@ const buttonClasses = {
                 </div>
                 <div>
                   <p class="text-2xl font-semibold">{{ opponentDeckCards.length }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
+              data-crawlv3-drop-zone="extraDeck"
+              :data-crawlv3-owner="opponentPlayer"
+            >
+              <div>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Extra Deck</p>
+              </div>
+              <div class="mt-4 flex items-center gap-4">
+                <div class="relative h-28 w-20">
+                  <div
+                    v-if="!opponentExtraDeckCards.length"
+                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
+                  />
+                  <img
+                    v-for="depth in Math.min(opponentExtraDeckCards.length, 3)"
+                    :key="depth"
+                    :src="cardBackImage"
+                    alt="Extra deck pile"
+                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
+                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
+                  />
+                </div>
+                <div>
+                  <p class="text-2xl font-semibold">{{ opponentExtraDeckCards.length }}</p>
                 </div>
               </div>
             </div>
@@ -414,7 +451,7 @@ const buttonClasses = {
             />
           </div>
 
-          <div class="grid gap-4 xl:grid-cols-3">
+          <div class="grid gap-4 xl:grid-cols-4">
             <div class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm">
               <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">You</p>
               <h2 class="mt-2 text-2xl font-semibold">{{ game.players[myPlayer]?.username }}</h2>
@@ -570,6 +607,36 @@ const buttonClasses = {
                 </button>
               </div>
             </div>
+
+            <div
+              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
+              data-crawlv3-drop-zone="extraDeck"
+              :data-crawlv3-owner="myPlayer"
+              @contextmenu.prevent="openPileViewer(myPlayer, 'extraDeck')"
+            >
+              <div>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Extra Deck</p>
+              </div>
+              <div class="mt-4 flex items-center gap-4">
+                <div class="relative h-28 w-20">
+                  <div
+                    v-if="!myExtraDeckCards.length"
+                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
+                  />
+                  <img
+                    v-for="depth in Math.min(myExtraDeckCards.length, 3)"
+                    :key="depth"
+                    :src="cardBackImage"
+                    alt="Extra deck pile"
+                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
+                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
+                  />
+                </div>
+                <div>
+                  <p class="text-2xl font-semibold">{{ myExtraDeckCards.length }}</p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -657,6 +724,14 @@ const buttonClasses = {
               Move to Deck
             </button>
             <button
+              v-if="selectedOwnCard.zone !== 'extraDeck'"
+              type="button"
+              :class="buttonClasses.extraDeck"
+              @click="moveCardToZone(selectedOwnCard.instanceId, 'extraDeck')"
+            >
+              Move to Extra Deck
+            </button>
+            <button
               v-if="selectedOwnCard.zone !== 'discard'"
               type="button"
               :class="buttonClasses.discard"
@@ -728,13 +803,15 @@ const buttonClasses = {
       :title="activePileTitle"
       :cards="activePileCards"
       :interactive="activePileInteractive"
-      :allow-move-to-deck="openPile.zone === 'discard' && activePileInteractive"
-      :allow-move-to-discard="openPile.zone === 'deck' && activePileInteractive"
+      :allow-move-to-deck="(openPile.zone === 'extraDeck' || openPile.zone === 'discard') && activePileInteractive"
+      :allow-move-to-extra-deck="openPile.zone !== 'extraDeck' && activePileInteractive"
+      :allow-move-to-discard="(openPile.zone === 'deck' || openPile.zone === 'extraDeck') && activePileInteractive"
       :status-labels="statusLabels"
       @close="openPile = null"
       @move-to-hand="moveCardToZone($event, 'hand')"
       @move-to-table="moveCardToZone($event, 'table')"
       @move-to-deck="moveCardToZone($event, 'deck')"
+      @move-to-extra-deck="moveCardToZone($event, 'extraDeck')"
       @move-to-discard="moveCardToZone($event, 'discard')"
     />
 

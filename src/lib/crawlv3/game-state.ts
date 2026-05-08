@@ -59,6 +59,8 @@ export function clampRatio(value: number | undefined, fallback = 0.5): number {
 export function normalizeConfigDefaults(config: Crawlv3CatalogConfig): Crawlv3CatalogConfig {
   return {
     ...config,
+    extraDeckCategoriesText: config.extraDeckCategoriesText ?? 'Fusion Unit, Ritual Unit',
+    faceDownCategoriesText: config.faceDownCategoriesText ?? 'Trap',
     defaultLifePoints: Number.isFinite(config.defaultLifePoints) ? Number(config.defaultLifePoints) : 8000,
     defaultActionPoints: Number.isFinite(config.defaultActionPoints) ? Number(config.defaultActionPoints) : 0,
   }
@@ -90,6 +92,31 @@ function resetCardModifiers(card: Crawlv3CardState) {
   card.debuffs = {}
 }
 
+function parseCategoryList(categoriesText: string) {
+  return categoriesText
+    .split(',')
+    .map((category) => category.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function cardMatchesCategories(card: Pick<Crawlv3CardState, 'category'>, categories: string[]) {
+  if (!categories.length) return false
+  const cardCategories = card.category
+    .split(',')
+    .map((category) => category.trim().toLowerCase())
+    .filter(Boolean)
+
+  return cardCategories.some((category) => categories.includes(category))
+}
+
+function getTablePlacement(card: Crawlv3CardState, config: Crawlv3CatalogConfig) {
+  const faceDown = cardMatchesCategories(card, parseCategoryList(config.faceDownCategoriesText))
+  return {
+    faceUp: !faceDown,
+    rotated: faceDown,
+  }
+}
+
 export function getZoneCards(
   cards: Record<string, Crawlv3CardState>,
   zone: Crawlv3Zone,
@@ -98,7 +125,7 @@ export function getZoneCards(
   return Object.values(cards)
     .filter((card) => card.zone === zone && (!owner || card.owner === owner))
     .sort((left, right) => {
-      if (zone === 'deck') return left.order - right.order
+      if (zone === 'deck' || zone === 'extraDeck') return left.order - right.order
       if (left.z === right.z) return left.order - right.order
       return left.z - right.z
     })
@@ -118,7 +145,7 @@ export function getNextDeckOrder(cards: Record<string, Crawlv3CardState>, owner:
 
 export function getNextPileOrder(
   cards: Record<string, Crawlv3CardState>,
-  zone: Extract<Crawlv3Zone, 'deck' | 'discard'>,
+  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard'>,
   owner: Crawlv3Player,
 ): number {
   return getZoneCards(cards, zone, owner).reduce((max, card) => Math.max(max, card.order), 0) + 1
@@ -272,16 +299,29 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
       const card = nextGame.cards[action.instanceId]
       if (!card || card.owner !== actor) break
 
+      const previousZone = card.zone
       card.zone = action.zone
-      card.x = action.zone === 'deck' || action.zone === 'discard' ? 0.5 : clampRatio(action.x)
-      card.y = action.zone === 'deck' || action.zone === 'discard' ? 0.5 : clampRatio(action.y)
+      card.x =
+        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+          ? 0.5
+          : clampRatio(action.x)
+      card.y =
+        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+          ? 0.5
+          : clampRatio(action.y)
       card.z = getNextZoneZ(nextGame.cards, action.zone, action.zone === 'table' ? undefined : actor)
-      if (action.faceUp !== undefined) card.faceUp = action.faceUp
-      if (action.rotated !== undefined) card.rotated = action.rotated
+      if (action.zone === 'table' && previousZone !== 'table') {
+        const placement = getTablePlacement(card, nextGame.config)
+        card.faceUp = placement.faceUp
+        card.rotated = placement.rotated
+      } else {
+        if (action.faceUp !== undefined) card.faceUp = action.faceUp
+        if (action.rotated !== undefined) card.rotated = action.rotated
+      }
       if (action.zone === 'hand') {
         card.rotated = false
       }
-      if (action.zone === 'deck' || action.zone === 'discard') {
+      if (action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard') {
         card.order = getNextPileOrder(nextGame.cards, action.zone, actor)
         card.faceUp = action.zone === 'discard'
         card.rotated = false

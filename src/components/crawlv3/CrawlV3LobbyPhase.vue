@@ -388,6 +388,28 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               </label>
             </div>
 
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/65">Extra deck categories</span>
+              <input
+                v-model="configDraft.extraDeckCategoriesText"
+                :readonly="!isHost"
+                type="text"
+                placeholder="Fusion Unit, Ritual Unit"
+                class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none read-only:cursor-default read-only:opacity-80 focus:border-amber-300/50"
+              />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/65">Face-down table categories</span>
+              <input
+                v-model="configDraft.faceDownCategoriesText"
+                :readonly="!isHost"
+                type="text"
+                placeholder="Trap"
+                class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none read-only:cursor-default read-only:opacity-80 focus:border-amber-300/50"
+              />
+            </label>
+
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"

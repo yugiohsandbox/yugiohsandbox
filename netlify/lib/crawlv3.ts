@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid'
 export const CRAWLV3_GAMES_COLLECTION = 'crawlv3_games'
 
 export type Crawlv3Player = 'player1' | 'player2'
-export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'discard'
+export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'extraDeck' | 'discard'
 export type Crawlv3StatusType = 'buff' | 'debuff'
 
 export interface Crawlv3CatalogHeaders {
@@ -33,6 +33,8 @@ export interface Crawlv3CatalogConfig {
   imageOverridesText: string
   statusCsvUrl: string
   statusHeaders: Crawlv3StatusHeaders
+  extraDeckCategoriesText: string
+  faceDownCategoriesText: string
   defaultLifePoints: number
   defaultActionPoints: number
 }
@@ -190,6 +192,8 @@ export function createDefaultCrawlv3Config(): Crawlv3CatalogConfig {
       type: 'type',
       description: 'description',
     },
+    extraDeckCategoriesText: 'Fusion Unit, Ritual Unit',
+    faceDownCategoriesText: 'Trap',
     defaultLifePoints: 8000,
     defaultActionPoints: 0,
   }
@@ -221,6 +225,8 @@ export function sanitizeCrawlv3Config(config: Partial<Crawlv3CatalogConfig> | un
       type: config?.statusHeaders?.type?.trim() ?? fallback.statusHeaders.type,
       description: config?.statusHeaders?.description?.trim() ?? fallback.statusHeaders.description,
     },
+    extraDeckCategoriesText: config?.extraDeckCategoriesText?.trim() ?? fallback.extraDeckCategoriesText,
+    faceDownCategoriesText: config?.faceDownCategoriesText?.trim() ?? fallback.faceDownCategoriesText,
     defaultLifePoints: Number.isFinite(config?.defaultLifePoints)
       ? Number(config?.defaultLifePoints)
       : fallback.defaultLifePoints,
@@ -327,7 +333,7 @@ function getZoneCards(
   return Object.values(cards)
     .filter((card) => card.zone === zone && (!owner || card.owner === owner))
     .sort((left, right) => {
-      if (zone === 'deck') return left.order - right.order
+      if (zone === 'deck' || zone === 'extraDeck') return left.order - right.order
       if (left.z === right.z) return left.order - right.order
       return left.z - right.z
     })
@@ -339,13 +345,18 @@ function getNextZoneZ(cards: Record<string, Crawlv3CardState>, zone: Crawlv3Zone
 
 function getNextPileOrder(
   cards: Record<string, Crawlv3CardState>,
-  zone: Extract<Crawlv3Zone, 'deck' | 'discard'>,
+  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard'>,
   owner: Crawlv3Player,
 ) {
   return getZoneCards(cards, zone, owner).reduce((max, card) => Math.max(max, card.order), 0) + 1
 }
 
-function createCardInstance(card: Crawlv3CatalogCard, owner: Crawlv3Player, order: number): Crawlv3CardState {
+function createCardInstance(
+  card: Crawlv3CatalogCard,
+  owner: Crawlv3Player,
+  order: number,
+  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck'> = 'deck',
+): Crawlv3CardState {
   return {
     instanceId: uuid(),
     cardId: card.id,
@@ -362,7 +373,7 @@ function createCardInstance(card: Crawlv3CatalogCard, owner: Crawlv3Player, orde
     img: card.img,
     description: card.description,
     imageUrl: card.imageUrl,
-    zone: 'deck',
+    zone,
     x: 0.5,
     y: 0.5,
     z: order + 1,
@@ -374,15 +385,57 @@ function createCardInstance(card: Crawlv3CatalogCard, owner: Crawlv3Player, orde
   }
 }
 
+function parseCategoryList(categoriesText: string) {
+  return categoriesText
+    .split(',')
+    .map((category) => category.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function cardMatchesCategories(card: Pick<Crawlv3CatalogCard | Crawlv3CardState, 'category'>, categories: string[]) {
+  if (!categories.length) return false
+  const cardCategories = card.category
+    .split(',')
+    .map((category) => category.trim().toLowerCase())
+    .filter(Boolean)
+
+  return cardCategories.some((category) => categories.includes(category))
+}
+
+function getTablePlacement(card: Crawlv3CardState, config: Crawlv3CatalogConfig) {
+  const faceDown = cardMatchesCategories(card, parseCategoryList(config.faceDownCategoriesText))
+  return {
+    faceUp: !faceDown,
+    rotated: faceDown,
+  }
+}
+
 function initializeGameCards(game: Crawlv3Game) {
   const cards: Record<string, Crawlv3CardState> = {}
+  const extraDeckCategories = parseCategoryList(game.config.extraDeckCategoriesText)
 
   for (const playerKey of ['player1', 'player2'] as const) {
     const selection = game.deckSelections[playerKey]
     if (!selection) continue
 
-    shuffleItems(selection.cards.map(sanitizeCard)).forEach((card, index) => {
-      const instance = createCardInstance(card, playerKey, index)
+    const mainDeckCards: Crawlv3CatalogCard[] = []
+    const extraDeckCards: Crawlv3CatalogCard[] = []
+
+    for (const card of selection.cards.map(sanitizeCard)) {
+      if (cardMatchesCategories(card, extraDeckCategories)) {
+        extraDeckCards.push(card)
+      } else {
+        mainDeckCards.push(card)
+      }
+    }
+
+    shuffleItems(mainDeckCards).forEach((card, index) => {
+      const instance = createCardInstance(card, playerKey, index, 'deck')
+      cards[instance.instanceId] = instance
+    })
+
+    shuffleItems(extraDeckCards).forEach((card, index) => {
+      const instance = createCardInstance(card, playerKey, index, 'extraDeck')
       cards[instance.instanceId] = instance
     })
   }
@@ -501,16 +554,29 @@ function handleActiveAction(game: Crawlv3Game, action: Crawlv3Action, playerKey:
       if (!card) return { success: false, error: 'Card not found' }
       if (card.owner !== playerKey) return { success: false, error: 'You can only move your own cards' }
 
+      const previousZone = card.zone
       card.zone = action.zone
-      card.x = action.zone === 'deck' || action.zone === 'discard' ? 0.5 : clampRatio(action.x)
-      card.y = action.zone === 'deck' || action.zone === 'discard' ? 0.5 : clampRatio(action.y)
+      card.x =
+        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+          ? 0.5
+          : clampRatio(action.x)
+      card.y =
+        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+          ? 0.5
+          : clampRatio(action.y)
       card.z = getNextZoneZ(game.cards, action.zone, action.zone === 'table' ? undefined : playerKey)
-      if (action.faceUp !== undefined) card.faceUp = action.faceUp
-      if (action.rotated !== undefined) card.rotated = action.rotated
+      if (action.zone === 'table' && previousZone !== 'table') {
+        const placement = getTablePlacement(card, game.config)
+        card.faceUp = placement.faceUp
+        card.rotated = placement.rotated
+      } else {
+        if (action.faceUp !== undefined) card.faceUp = action.faceUp
+        if (action.rotated !== undefined) card.rotated = action.rotated
+      }
       if (action.zone === 'hand') {
         card.rotated = false
       }
-      if (action.zone === 'deck' || action.zone === 'discard') {
+      if (action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard') {
         card.order = getNextPileOrder(game.cards, action.zone, playerKey)
         card.faceUp = action.zone === 'discard'
         card.rotated = false

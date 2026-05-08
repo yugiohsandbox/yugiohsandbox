@@ -27,6 +27,8 @@ export function formatZoneLabel(zone: Crawlv3Zone) {
       return 'Hand'
     case 'deck':
       return 'Deck'
+    case 'extraDeck':
+      return 'Extra Deck'
     case 'discard':
       return 'Discard'
   }

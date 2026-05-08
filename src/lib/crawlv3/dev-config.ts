@@ -26,6 +26,8 @@ export const CRAWLV3_DEV_CONFIG: { defaultRoomConfig: Crawlv3CatalogConfig } = {
       type: 'type',
       description: 'description',
     },
+    extraDeckCategoriesText: 'Fusion Unit, Ritual Unit',
+    faceDownCategoriesText: 'Trap',
     defaultLifePoints: 40,
     defaultActionPoints: 2,
   },
