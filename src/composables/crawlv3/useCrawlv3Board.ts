@@ -245,10 +245,12 @@ export function useCrawlv3Board({
   function defaultZonePosition(zone: Exclude<Crawlv3Zone, 'deck' | 'discard'>) {
     const zoneCards = zone === 'table' ? tableCards.value.length : myHandCards.value.length
     if (zone === 'hand') {
-      const rowOffset = Math.floor(zoneCards / 6) * 0.025
-      const randomOffset = (Math.random() - 0.5) * 0.055
+      const slotIndex = zoneCards % 6
+      const rowOffset = Math.floor(zoneCards / 6) * 0.015
+      const randomOffset = (Math.random() - 0.5) * 0.035
+      const centeredSlots = [0.5, 0.43, 0.57, 0.36, 0.64, 0.71]
       return {
-        x: clampRatio(0.18 + (zoneCards % 6) * 0.13 + rowOffset + randomOffset, 0.5),
+        x: clampRatio(centeredSlots[slotIndex] + rowOffset + randomOffset, 0.5),
         y: 0.5,
       }
     }

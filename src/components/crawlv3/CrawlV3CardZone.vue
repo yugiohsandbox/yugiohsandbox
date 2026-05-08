@@ -2,7 +2,7 @@
 import CrawlV3Card from '@/components/crawlv3/CrawlV3Card.vue'
 import type { Crawlv3CardState, Crawlv3Player, Crawlv3StatusType, Crawlv3Zone } from '@/types/crawlv3'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     cards: Crawlv3CardState[]
     dropZone: Crawlv3Zone
@@ -29,11 +29,23 @@ const emit = defineEmits<{
   (e: 'card-tooltip', card: Crawlv3CardState, event: MouseEvent): void
   (e: 'card-tooltip-clear', card: Crawlv3CardState): void
   (e: 'decrement-status', instanceId: string, kind: Crawlv3StatusType, key: string): void
+  (e: 'zone-pointerdown', zone: Crawlv3Zone, event: PointerEvent): void
 }>()
+
+function handleZonePointerDown(event: PointerEvent) {
+  if (event.button !== 0) return
+  if ((event.target as HTMLElement | null)?.closest('[data-crawlv3-card-shell]')) return
+  emit('zone-pointerdown', props.dropZone, event)
+}
 </script>
 
 <template>
-  <div :class="zoneClass" :data-crawlv3-drop-zone="dropZone" :data-crawlv3-owner="owner">
+  <div
+    :class="zoneClass"
+    :data-crawlv3-drop-zone="dropZone"
+    :data-crawlv3-owner="owner"
+    @pointerdown="handleZonePointerDown"
+  >
     <div
       v-if="showGrid"
       class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:calc(100%/10)_calc(100%/8)]"

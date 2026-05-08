@@ -345,6 +345,7 @@ const buttonClasses = {
               @card-tooltip="updateTooltip"
               @card-tooltip-clear="clearTooltip"
               @decrement-status="decrementCardStatus"
+              @zone-pointerdown="clearSelectedCardState"
             />
           </div>
         </section>
@@ -380,6 +381,7 @@ const buttonClasses = {
             @card-tooltip="updateTooltip"
             @card-tooltip-clear="clearTooltip"
             @decrement-status="decrementCardStatus"
+            @zone-pointerdown="clearSelectedCardState"
           />
         </section>
 
@@ -408,6 +410,7 @@ const buttonClasses = {
               @card-tooltip="updateTooltip"
               @card-tooltip-clear="clearTooltip"
               @decrement-status="decrementCardStatus"
+              @zone-pointerdown="clearSelectedCardState"
             />
           </div>
 
