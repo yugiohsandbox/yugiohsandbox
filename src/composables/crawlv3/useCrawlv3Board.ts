@@ -279,9 +279,24 @@ export function useCrawlv3Board({
       }
     }
 
+    if (zone === 'table') {
+      const centeredSlots = [
+        { x: 0.5, y: 0.5 },
+        { x: 0.43, y: 0.5 },
+        { x: 0.57, y: 0.5 },
+        { x: 0.5, y: 0.39 },
+        { x: 0.5, y: 0.61 },
+        { x: 0.43, y: 0.39 },
+        { x: 0.57, y: 0.61 },
+        { x: 0.57, y: 0.39 },
+        { x: 0.43, y: 0.61 },
+      ]
+      return centeredSlots[zoneCards % centeredSlots.length]
+    }
+
     return {
-      x: clampRatio(0.18 + (zoneCards % 6) * 0.13, 0.5),
-      y: clampRatio(0.2 + Math.floor(zoneCards / 6) * 0.17, 0.5),
+      x: 0.5,
+      y: 0.5,
     }
   }
 

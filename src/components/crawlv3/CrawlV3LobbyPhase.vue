@@ -69,15 +69,32 @@ const selectedCatalogCards = computed(() => {
     .filter((card): card is Crawlv3CatalogCard => !!card)
 })
 
+const selectedCatalogRows = computed(() => {
+  const counts = selectedCatalogCounts.value
+  return catalogCards.value.map((card) => ({ card, count: counts[card.id] ?? 0 })).filter((row) => row.count > 0)
+})
+
+function getCatalogSearchRank(card: Crawlv3CatalogCard, query: string) {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return 0
+  if (card.title.toLowerCase().includes(normalizedQuery)) return 0
+  if (card.id.toLowerCase().includes(normalizedQuery)) return 1
+  if ([card.category, card.race, card.damageType].join(' ').toLowerCase().includes(normalizedQuery)) {
+    return 2
+  }
+  if (card.description.toLowerCase().includes(normalizedQuery)) return 3
+  return null
+}
+
 const filteredCatalogCards = computed(() => {
   if (!catalogSearch.value.trim()) return catalogCards.value
   const query = catalogSearch.value.trim().toLowerCase()
-  return catalogCards.value.filter((card) =>
-    [card.title, card.id, card.category, card.description, card.race, card.damageType]
-      .join(' ')
-      .toLowerCase()
-      .includes(query),
-  )
+
+  return catalogCards.value
+    .map((card, index) => ({ card, index, rank: getCatalogSearchRank(card, query) }))
+    .filter((result): result is { card: Crawlv3CatalogCard; index: number; rank: number } => result.rank !== null)
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map((result) => result.card)
 })
 
 const catalogPreviewState = computed(() => {
@@ -198,8 +215,8 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl py-8">
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+  <div class="mx-auto max-w-[100rem] py-8">
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)_minmax(16rem,19rem)]">
       <aside class="space-y-6">
         <section class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-6 shadow-2xl backdrop-blur-sm">
           <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Room</p>
@@ -602,6 +619,60 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
           </div>
         </div>
       </section>
+
+      <aside
+        class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Selected</p>
+            <h2 class="mt-2 text-2xl font-semibold">Your Deck</h2>
+            <p class="mt-1 text-sm text-white/60">{{ localSelectionIds.length }} cards</p>
+          </div>
+          <button
+            type="button"
+            class="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canEditDeckSelection || !localSelectionIds.length"
+            @click="clearCatalogSelection"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div
+          v-if="!selectedCatalogRows.length"
+          class="mt-4 rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm text-white/50"
+        >
+          No cards selected.
+        </div>
+
+        <div v-else class="mt-4 space-y-2">
+          <button
+            v-for="{ card, count } in selectedCatalogRows"
+            :key="`selected-${card.id}`"
+            type="button"
+            class="flex w-full items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 p-2 text-left transition hover:border-rose-300/35 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="!canEditDeckSelection"
+            :aria-label="`Remove one ${card.title}`"
+            @click="removeCardSelection(card.id)"
+          >
+            <div class="h-14 w-10 shrink-0 overflow-hidden border border-white/10 bg-black/25">
+              <img v-if="card.imageUrl" :src="card.imageUrl" :alt="card.title" class="h-full w-full object-cover" />
+              <div
+                v-else
+                class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] text-[0.55rem] font-semibold text-amber-950"
+              >
+                {{ card.title.slice(0, 2) }}
+              </div>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-white/90">{{ card.title }}</p>
+              <p v-if="getCardTags(card)" class="mt-0.5 truncate text-xs text-white/45">{{ getCardTags(card) }}</p>
+            </div>
+            <span class="rounded-full bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950"> x{{ count }} </span>
+          </button>
+        </div>
+      </aside>
     </div>
 
     <CrawlV3CatalogTooltip :card="catalogTooltipCard" :point="catalogTooltipPoint" />
