@@ -17,12 +17,12 @@ const emit = defineEmits<{
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-[1000] bg-black/80 p-4 backdrop-blur-sm" @click="emit('close')">
-      <div class="mx-auto grid h-full max-w-6xl items-center gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+      <div class="mx-auto grid h-full max-w-6xl items-center gap-6 lg:grid-cols-[minmax(0,30rem)_minmax(0,28rem)]">
         <div class="flex justify-center">
           <img
             :src="showFace ? card.imageUrl || cardBackImage : cardBackImage"
             :alt="showFace ? card.title : 'Face-down card'"
-            class="max-h-[85vh] rounded-[1.5rem] border border-white/15 bg-neutral-950 object-contain shadow-2xl"
+            class="h-[min(85vh,37.5rem)] max-h-[85vh] rounded-[1.5rem] border border-white/15 bg-neutral-950 object-contain shadow-2xl"
             @click.stop
           />
         </div>
