@@ -25,6 +25,7 @@ const selectedCardId = ref<string | null>(null)
 const previewCardId = ref<string | null>(null)
 const statusCardId = ref<string | null>(null)
 const openPile = ref<OpenCrawlv3PileState | null>(null)
+const fieldCardWidth = ref('calc(clamp(38rem, min(50vw, calc(100vh - 26rem)), 68rem) * 0.16 * 63 / 88)')
 
 const { statusDefinitions } = useCrawlv3StatusDefinitions({
   config: computed(() => game.value?.config),
@@ -88,6 +89,7 @@ const {
   myHandCards,
   myDeckCards,
   myDiscardCards,
+  fieldCardWidth,
   selectedCardId,
   enqueueAction,
 })
@@ -130,6 +132,25 @@ const tooltipCard = computed(() => {
 const previewCard = computed(() => {
   if (!game.value || !previewCardId.value) return null
   return game.value.cards[previewCardId.value] ?? null
+})
+
+const dragPreviewCard = computed(() => {
+  if (!game.value || !dragState.value) return null
+  const card = game.value.cards[dragState.value.instanceId]
+  if (!card) return null
+
+  if (dragState.value.previewFaceUp === undefined && dragState.value.previewRotated === undefined) return card
+
+  return {
+    ...card,
+    faceUp: dragState.value.previewFaceUp ?? card.faceUp,
+    rotated: dragState.value.previewRotated ?? card.rotated,
+  }
+})
+
+const dragPreviewShowFace = computed(() => {
+  if (!dragPreviewCard.value) return false
+  return dragState.value?.previewFaceUp ?? getCardRenderFace(dragPreviewCard.value)
 })
 
 const tooltipBuffs = computed(() => (tooltipCard.value ? getCardStatusEntries(tooltipCard.value, 'buff') : []))
@@ -190,6 +211,10 @@ function openPileViewer(owner: Crawlv3Player, zone: Crawlv3PileZone) {
 
 function pilePreviewImage(card: Crawlv3CardState | null) {
   return card?.imageUrl || ''
+}
+
+function updateFieldCardWidth(size: { height: number }) {
+  fieldCardWidth.value = `${size.height * 0.16 * (63 / 88)}px`
 }
 
 const buttonClasses = {
@@ -410,8 +435,9 @@ const buttonClasses = {
             :cards="tableCards"
             drop-zone="table"
             empty-label="Shared table"
-            zone-class="relative h-[min(50vw,calc(100vh-26rem))] max-h-[68rem] min-h-[38rem] overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(69,46,24,0.22),rgba(20,16,13,0.78)),radial-gradient(circle_at_top,rgba(210,167,93,0.22),transparent_45%)] ring-1 ring-white/5"
+            zone-class="relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(69,46,24,0.22),rgba(20,16,13,0.78)),radial-gradient(circle_at_top,rgba(210,167,93,0.22),transparent_45%)] [container-type:size] ring-1 ring-white/5"
             :field-image-url="fieldImageUrl"
+            match-field-image-aspect
             :selected-card-id="selectedCardId"
             :status-labels="statusLabels"
             show-grid
@@ -422,6 +448,7 @@ const buttonClasses = {
             @card-tooltip="updateTooltip"
             @card-tooltip-clear="clearTooltip"
             @decrement-status="decrementCardStatus"
+            @zone-resize="updateFieldCardWidth"
             @zone-pointerdown="clearSelectedCardState"
           />
         </section>
@@ -793,10 +820,10 @@ const buttonClasses = {
     </div>
 
     <CrawlV3DragGhost
-      v-if="dragState?.active && game?.cards[dragState.instanceId]"
-      :card="game.cards[dragState.instanceId]"
+      v-if="dragState?.active && dragPreviewCard"
+      :card="dragPreviewCard"
       :style="dragGhostStyle"
-      :show-face="getCardRenderFace(game.cards[dragState.instanceId])"
+      :show-face="dragPreviewShowFace"
       :status-labels="statusLabels"
     />
 

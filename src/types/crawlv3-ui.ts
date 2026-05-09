@@ -29,6 +29,8 @@ export type Crawlv3DragState = {
   cardWidth: number
   cardHeight: number
   active: boolean
+  previewFaceUp?: boolean
+  previewRotated?: boolean
 }
 
 export type Crawlv3TooltipState = {

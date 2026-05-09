@@ -13,6 +13,7 @@ type UseCrawlv3BoardOptions = {
   myHandCards: ComputedRef<Crawlv3CardState[]>
   myDeckCards: ComputedRef<Crawlv3CardState[]>
   myDiscardCards: ComputedRef<Crawlv3CardState[]>
+  fieldCardWidth: Ref<string>
   selectedCardId: Ref<string | null>
   enqueueAction: (action: QueuedCrawlv3Action) => void
   onClearTransientUi?: () => void
@@ -47,6 +48,7 @@ export function useCrawlv3Board({
   myHandCards,
   myDeckCards,
   myDiscardCards,
+  fieldCardWidth,
   selectedCardId,
   enqueueAction,
   onClearTransientUi,
@@ -109,9 +111,9 @@ export function useCrawlv3Board({
     const point = normalizeZonePoint(card.zone, card.x, card.y)
     const width =
       card.zone === 'table'
-        ? `calc(clamp(1.75rem, 5.15%, 8.4rem) * ${scale})`
+        ? fieldCardWidth.value
         : card.zone === 'hand'
-          ? `calc(clamp(1.75rem, 5.15%, 8.4rem) * ${scale})`
+          ? fieldCardWidth.value
           : undefined
 
     return {
@@ -201,21 +203,28 @@ export function useCrawlv3Board({
   }
 
   function handlePointerMove(event: PointerEvent) {
-    if (!dragState.value) return
+    const currentDrag = dragState.value
+    if (!currentDrag) return
 
-    const deltaX = event.clientX - dragState.value.startX
-    const deltaY = event.clientY - dragState.value.startY
-    const nextActive = dragState.value.active || Math.sqrt(deltaX * deltaX + deltaY * deltaY) > 6
+    const deltaX = event.clientX - currentDrag.startX
+    const deltaY = event.clientY - currentDrag.startY
+    const nextActive = currentDrag.active || Math.sqrt(deltaX * deltaX + deltaY * deltaY) > 6
 
-    if (nextActive && !dragState.value.active) {
-      selectedCardId.value = dragState.value.instanceId
+    if (nextActive && !currentDrag.active) {
+      selectedCardId.value = currentDrag.instanceId
     }
 
+    const card = game.value?.cards[currentDrag.instanceId]
+    const target = nextActive ? resolveDropTarget(event.clientX, event.clientY, currentDrag) : null
+    const previewPlacement = card && target?.zone === 'table' ? getTablePlacementPatch(card) : null
+
     dragState.value = {
-      ...dragState.value,
-      ghostX: event.clientX - dragState.value.pointerOffsetX,
-      ghostY: event.clientY - dragState.value.pointerOffsetY,
+      ...currentDrag,
+      ghostX: event.clientX - currentDrag.pointerOffsetX,
+      ghostY: event.clientY - currentDrag.pointerOffsetY,
       active: nextActive,
+      previewFaceUp: previewPlacement?.faceUp,
+      previewRotated: previewPlacement?.rotated,
     }
   }
 
