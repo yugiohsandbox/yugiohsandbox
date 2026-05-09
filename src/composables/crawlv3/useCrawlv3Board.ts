@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, onBeforeUnmount, ref, type ComputedRef, type Ref } from 'vue'
 
 import { clampRatio, getTopDeckCard, getTopPileCard } from '@/lib/crawlv3/game-state'
 import { shuffleItems } from '@/lib/crawlv3/ui-utils'
@@ -20,13 +20,7 @@ type UseCrawlv3BoardOptions = {
 
 type TopMovablePileZone = Extract<Crawlv3PileZone, 'deck' | 'discard'>
 
-const boardCardScaleStorageKey = 'crawlv3:board-card-scale'
-
-function loadStoredBoardCardScale() {
-  if (typeof window === 'undefined') return 1
-  const storedValue = Number(window.localStorage.getItem(boardCardScaleStorageKey))
-  return Number.isFinite(storedValue) ? Math.min(1.5, Math.max(0.65, storedValue)) : 1
-}
+const fixedBoardCardScale = 0.95
 
 function parseCategoryList(categoriesText: string | undefined) {
   return (categoriesText ?? '')
@@ -57,7 +51,7 @@ export function useCrawlv3Board({
   enqueueAction,
   onClearTransientUi,
 }: UseCrawlv3BoardOptions) {
-  const boardCardScale = ref(loadStoredBoardCardScale())
+  const boardCardScale = ref(fixedBoardCardScale)
   const hoveredTooltip = ref<Crawlv3TooltipState | null>(null)
   const dragState = ref<Crawlv3DragState | null>(null)
 
@@ -117,7 +111,7 @@ export function useCrawlv3Board({
       card.zone === 'table'
         ? `calc(clamp(1.75rem, 5.15%, 8.4rem) * ${scale})`
         : card.zone === 'hand'
-          ? `calc(clamp(1.6rem, 4.75%, 7.2rem) * ${scale})`
+          ? `calc(clamp(1.75rem, 5.15%, 8.4rem) * ${scale})`
           : undefined
 
     return {
@@ -369,11 +363,6 @@ export function useCrawlv3Board({
       hoveredTooltip.value = null
     }
   }
-
-  watch(boardCardScale, (scale) => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(boardCardScaleStorageKey, String(scale))
-  })
 
   onBeforeUnmount(() => {
     window.removeEventListener('pointermove', handlePointerMove)

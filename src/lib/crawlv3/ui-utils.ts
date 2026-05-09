@@ -32,6 +32,7 @@ export function withDefaultCatalogConfig(config: Crawlv3CatalogConfig): Crawlv3C
     },
     extraDeckCategoriesText: config.extraDeckCategoriesText ?? defaults.extraDeckCategoriesText,
     faceDownCategoriesText: config.faceDownCategoriesText ?? defaults.faceDownCategoriesText,
+    fieldImageUrl: config.fieldImageUrl ?? defaults.fieldImageUrl,
   }
 }
 

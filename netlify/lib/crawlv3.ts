@@ -31,6 +31,7 @@ export interface Crawlv3CatalogConfig {
   headers: Crawlv3CatalogHeaders
   imageUrlTemplate: string
   imageOverridesText: string
+  fieldImageUrl: string
   statusCsvUrl: string
   statusHeaders: Crawlv3StatusHeaders
   extraDeckCategoriesText: string
@@ -185,6 +186,8 @@ export function createDefaultCrawlv3Config(): Crawlv3CatalogConfig {
     },
     imageUrlTemplate: '',
     imageOverridesText: '',
+    fieldImageUrl:
+      'https://eu-west-2.console.aws.amazon.com/s3/object/yugioh-simulator?region=eu-west-2&prefix=card_art/field.png',
     statusCsvUrl: '',
     statusHeaders: {
       id: 'id',
@@ -218,6 +221,7 @@ export function sanitizeCrawlv3Config(config: Partial<Crawlv3CatalogConfig> | un
     },
     imageUrlTemplate: config?.imageUrlTemplate?.trim() ?? fallback.imageUrlTemplate,
     imageOverridesText: config?.imageOverridesText ?? fallback.imageOverridesText,
+    fieldImageUrl: config?.fieldImageUrl?.trim() ?? fallback.fieldImageUrl,
     statusCsvUrl: config?.statusCsvUrl?.trim() ?? fallback.statusCsvUrl,
     statusHeaders: {
       id: config?.statusHeaders?.id?.trim() ?? fallback.statusHeaders.id,

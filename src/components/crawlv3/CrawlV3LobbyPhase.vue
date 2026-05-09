@@ -343,6 +343,17 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               />
             </label>
 
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/65">Field image URL</span>
+              <input
+                v-model="configDraft.fieldImageUrl"
+                :readonly="!isHost"
+                type="url"
+                placeholder="https://cdn.example.com/field.png"
+                class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none read-only:cursor-default read-only:opacity-80 focus:border-amber-300/50"
+              />
+            </label>
+
             <div class="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>

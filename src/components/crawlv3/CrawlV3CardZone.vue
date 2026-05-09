@@ -9,6 +9,7 @@ const props = withDefaults(
     owner?: Crawlv3Player
     emptyLabel: string
     zoneClass: string
+    fieldImageUrl?: string
     selectedCardId?: string | null
     statusLabels?: Record<string, string>
     showGrid?: boolean
@@ -18,6 +19,7 @@ const props = withDefaults(
   {
     owner: undefined,
     selectedCardId: null,
+    fieldImageUrl: '',
     statusLabels: () => ({}),
     showGrid: false,
   },
@@ -46,6 +48,13 @@ function handleZonePointerDown(event: PointerEvent) {
     :data-crawlv3-owner="owner"
     @pointerdown="handleZonePointerDown"
   >
+    <img
+      v-if="fieldImageUrl"
+      :src="fieldImageUrl"
+      alt=""
+      class="pointer-events-none absolute inset-0 h-full w-full object-contain object-center"
+    />
+
     <div
       v-if="showGrid"
       class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:calc(100%/10)_calc(100%/8)]"

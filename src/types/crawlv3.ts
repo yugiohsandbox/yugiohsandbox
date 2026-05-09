@@ -28,6 +28,7 @@ export interface Crawlv3CatalogConfig {
   headers: Crawlv3CatalogHeaders
   imageUrlTemplate: string
   imageOverridesText: string
+  fieldImageUrl: string
   statusCsvUrl: string
   statusHeaders: Crawlv3StatusHeaders
   extraDeckCategoriesText: string

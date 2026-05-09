@@ -57,8 +57,11 @@ export function clampRatio(value: number | undefined, fallback = 0.5): number {
 }
 
 export function normalizeConfigDefaults(config: Crawlv3CatalogConfig): Crawlv3CatalogConfig {
+  const defaults = createDefaultCrawlv3Config()
+
   return {
     ...config,
+    fieldImageUrl: config.fieldImageUrl ?? defaults.fieldImageUrl,
     extraDeckCategoriesText: config.extraDeckCategoriesText ?? 'Fusion Unit, Ritual Unit',
     faceDownCategoriesText: config.faceDownCategoriesText ?? 'Trap',
     defaultLifePoints: Number.isFinite(config.defaultLifePoints) ? Number(config.defaultLifePoints) : 8000,

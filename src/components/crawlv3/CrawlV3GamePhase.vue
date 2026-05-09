@@ -15,7 +15,7 @@ import { useCrawlv3StatusDefinitions } from '@/composables/crawlv3/useCrawlv3Sta
 import cardBackImage from '@/assets/images/cards/cardback.png'
 import { formatFaceLabel, formatPositionLabel, formatZoneLabel, shouldShowCardStat } from '@/lib/crawlv3/card-display'
 import { getTopPileCard, getZoneCards } from '@/lib/crawlv3/game-state'
-import { shuffleItems } from '@/lib/crawlv3/ui-utils'
+import { shuffleItems, withDefaultCatalogConfig } from '@/lib/crawlv3/ui-utils'
 import type { Crawlv3CardState, Crawlv3Player } from '@/types/crawlv3'
 import type { Crawlv3PileZone, OpenCrawlv3PileState } from '@/types/crawlv3-ui'
 
@@ -66,7 +66,6 @@ const opponentTopDiscardCard = computed(() =>
 )
 
 const {
-  boardCardScaleLabel,
   hoveredTooltip,
   dragState,
   dragGhostStyle,
@@ -74,7 +73,6 @@ const {
   getCardRenderFace,
   canSeeCardDetails,
   cardPositionStyle,
-  adjustBoardCardScale,
   startCardDrag,
   moveCardToZone,
   moveTopPileCardTo,
@@ -136,6 +134,8 @@ const previewCard = computed(() => {
 
 const tooltipBuffs = computed(() => (tooltipCard.value ? getCardStatusEntries(tooltipCard.value, 'buff') : []))
 const tooltipDebuffs = computed(() => (tooltipCard.value ? getCardStatusEntries(tooltipCard.value, 'debuff') : []))
+
+const fieldImageUrl = computed(() => (game.value ? withDefaultCatalogConfig(game.value.config).fieldImageUrl.trim() : ''))
 
 const activePileCards = computed(() => {
   if (!openPile.value || !game.value) return []
@@ -394,13 +394,16 @@ const buttonClasses = {
               <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Shared Table</p>
               <p class="mt-1 text-sm text-white/55">{{ tableCards.length }} cards in play</p>
             </div>
-            <div class="flex flex-wrap items-center justify-end gap-3">
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-white/45">Card Size {{ boardCardScaleLabel }}</span>
-                <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(-0.1)">-</button>
-                <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(0.1)">+</button>
+            <p class="text-sm text-white/45">Drag cards onto the field to play them.</p>
+            <!--
+              <div class="flex flex-wrap items-center justify-end gap-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-white/45">Card Size {{ boardCardScaleLabel }}</span>
+                  <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(-0.1)">-</button>
+                  <button type="button" :class="buttonClasses.icon" @click="adjustBoardCardScale(0.1)">+</button>
+                </div>
               </div>
-            </div>
+            -->
           </div>
 
           <CrawlV3CardZone
@@ -408,6 +411,7 @@ const buttonClasses = {
             drop-zone="table"
             empty-label="Shared table"
             zone-class="relative h-[min(50vw,calc(100vh-26rem))] max-h-[68rem] min-h-[38rem] overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(69,46,24,0.22),rgba(20,16,13,0.78)),radial-gradient(circle_at_top,rgba(210,167,93,0.22),transparent_45%)] ring-1 ring-white/5"
+            :field-image-url="fieldImageUrl"
             :selected-card-id="selectedCardId"
             :status-labels="statusLabels"
             show-grid

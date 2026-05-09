@@ -18,6 +18,15 @@ const router = createRouter({
       component: () => import('@/views/DeckBuilder.vue'),
     },
     {
+      path: '/temporary-playspace-grid',
+      name: 'temporaryPlayspaceGrid',
+      component: () => import('@/views/TemporaryPlayspaceGrid.vue'),
+      meta: {
+        hideNav: true,
+        public: true,
+      },
+    },
+    {
       path: '/play/:gameCode?',
       name: 'play',
       component: () => import('@/views/PlaySpace.vue'),
@@ -101,7 +110,7 @@ router.beforeEach(async (to, from, next) => {
     await userStore.initAuth()
   }
 
-  if (!userStore.user && to.name !== 'login') {
+  if (!userStore.user && to.name !== 'login' && !to.meta.public) {
     next({
       name: 'login',
       params:
