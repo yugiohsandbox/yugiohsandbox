@@ -73,6 +73,7 @@ export function sanitizeStatusRecord(record: Record<string, number> | undefined)
   const entries = Object.entries(record ?? {})
     .map(([key, value]) => [key.trim(), Number(value)] as const)
     .filter(([key, value]) => key.length > 0 && Number.isFinite(value) && value !== 0)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
 
   return Object.fromEntries(entries)
 }
@@ -128,7 +129,9 @@ export function getZoneCards(
   return Object.values(cards)
     .filter((card) => card.zone === zone && (!owner || card.owner === owner))
     .sort((left, right) => {
-      if (zone === 'deck' || zone === 'extraDeck') return left.order - right.order
+      if (zone === 'deck' || zone === 'extraDeck' || zone === 'discard' || zone === 'exhausted') {
+        return left.order - right.order
+      }
       if (left.z === right.z) return left.order - right.order
       return left.z - right.z
     })
@@ -148,7 +151,7 @@ export function getNextDeckOrder(cards: Record<string, Crawlv3CardState>, owner:
 
 export function getNextPileOrder(
   cards: Record<string, Crawlv3CardState>,
-  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard'>,
+  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard' | 'exhausted'>,
   owner: Crawlv3Player,
 ): number {
   return getZoneCards(cards, zone, owner).reduce((max, card) => Math.max(max, card.order), 0) + 1
@@ -160,7 +163,7 @@ export function getTopDeckCard(cards: Record<string, Crawlv3CardState>, owner: C
 
 export function getTopPileCard(
   cards: Record<string, Crawlv3CardState>,
-  zone: Extract<Crawlv3Zone, 'deck' | 'discard'>,
+  zone: Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard' | 'exhausted'>,
   owner: Crawlv3Player,
 ) {
   const pileCards = getZoneCards(cards, zone, owner)
@@ -182,10 +185,42 @@ function applyDeckOrder(cards: Record<string, Crawlv3CardState>, owner: Crawlv3P
   })
 }
 
+function applyDiscardRecycleOrder(
+  cards: Record<string, Crawlv3CardState>,
+  owner: Crawlv3Player,
+  orderedCardIds: string[],
+  config: Crawlv3CatalogConfig,
+) {
+  const extraDeckCategories = parseCategoryList(config.extraDeckCategoriesText)
+  let deckOrder = 0
+  let extraDeckOrder = getNextPileOrder(cards, 'extraDeck', owner)
+
+  orderedCardIds.forEach((instanceId) => {
+    const card = cards[instanceId]
+    if (!card || card.owner !== owner) return
+
+    const targetZone = cardMatchesCategories(card, extraDeckCategories) ? 'extraDeck' : 'deck'
+    card.zone = targetZone
+    card.x = 0.5
+    card.y = 0.5
+    card.z = targetZone === 'extraDeck' ? extraDeckOrder + 1 : deckOrder + 1
+    card.order = targetZone === 'extraDeck' ? extraDeckOrder : deckOrder
+    card.faceUp = false
+    card.rotated = false
+    resetCardModifiers(card)
+
+    if (targetZone === 'extraDeck') {
+      extraDeckOrder += 1
+    } else {
+      deckOrder += 1
+    }
+  })
+}
+
 export function isCardVisibleToPlayer(card: Crawlv3CardState, viewer: Crawlv3Player | null): boolean {
-  if (!viewer) return card.zone !== 'hand' && card.faceUp
+  if (!viewer) return card.zone !== 'hand' && card.zone !== 'discard' && card.zone !== 'exhausted' && card.faceUp
   if (card.owner === viewer) return true
-  if (card.zone === 'hand') return false
+  if (card.zone === 'hand' || card.zone === 'discard' || card.zone === 'exhausted') return false
   return card.faceUp
 }
 
@@ -247,15 +282,6 @@ export function applyConfigDefaultsToPlayers(game: Crawlv3Game) {
   }
 }
 
-function clearDeckSelections(game: Crawlv3Game) {
-  game.deckSelections.player1 = null
-  game.deckSelections.player2 = null
-}
-
-function areConfigsEqual(left: Crawlv3CatalogConfig, right: Crawlv3CatalogConfig) {
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
 export function completeCrawlv3Game(game: Crawlv3Game) {
   game.status = 'lobby'
   game.cards = {}
@@ -273,12 +299,8 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
 
   switch (action.type) {
     case 'update_config': {
-      const previousConfig = normalizeConfigDefaults(nextGame.config)
       const nextConfig = normalizeConfigDefaults(cloneGame(action.config) as Crawlv3CatalogConfig)
       nextGame.config = nextConfig
-      if (!areConfigsEqual(previousConfig, nextConfig)) {
-        clearDeckSelections(nextGame)
-      }
       applyConfigDefaultsToPlayers(nextGame)
       break
     }
@@ -305,28 +327,40 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
       const previousZone = card.zone
       card.zone = action.zone
       card.x =
-        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+        action.zone === 'deck' ||
+        action.zone === 'extraDeck' ||
+        action.zone === 'discard' ||
+        action.zone === 'exhausted'
           ? 0.5
           : clampRatio(action.x)
       card.y =
-        action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard'
+        action.zone === 'deck' ||
+        action.zone === 'extraDeck' ||
+        action.zone === 'discard' ||
+        action.zone === 'exhausted'
           ? 0.5
           : clampRatio(action.y)
       card.z = getNextZoneZ(nextGame.cards, action.zone, action.zone === 'table' ? undefined : actor)
       if (action.zone === 'table' && previousZone !== 'table') {
         const placement = getTablePlacement(card, nextGame.config)
-        card.faceUp = placement.faceUp
-        card.rotated = placement.rotated
+        card.faceUp = action.faceUp ?? placement.faceUp
+        card.rotated = action.rotated ?? placement.rotated
       } else {
         if (action.faceUp !== undefined) card.faceUp = action.faceUp
         if (action.rotated !== undefined) card.rotated = action.rotated
       }
       if (action.zone === 'hand') {
+        card.faceUp = action.faceUp ?? true
         card.rotated = false
       }
-      if (action.zone === 'deck' || action.zone === 'extraDeck' || action.zone === 'discard') {
+      if (
+        action.zone === 'deck' ||
+        action.zone === 'extraDeck' ||
+        action.zone === 'discard' ||
+        action.zone === 'exhausted'
+      ) {
         card.order = getNextPileOrder(nextGame.cards, action.zone, actor)
-        card.faceUp = action.zone === 'discard'
+        card.faceUp = action.zone === 'discard' || action.zone === 'exhausted'
         card.rotated = false
         resetCardModifiers(card)
       }
@@ -341,6 +375,8 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
       if (action.patch.rotated !== undefined) card.rotated = action.patch.rotated
       if (action.patch.atk !== undefined) card.atk = action.patch.atk
       if (action.patch.def !== undefined) card.def = action.patch.def
+      if (action.patch.race !== undefined) card.race = action.patch.race
+      if (action.patch.damageType !== undefined) card.damageType = action.patch.damageType
       if (action.patch.buffs) card.buffs = sanitizeStatusRecord(action.patch.buffs)
       if (action.patch.debuffs) card.debuffs = sanitizeStatusRecord(action.patch.debuffs)
       break
@@ -359,7 +395,7 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
     }
     case 'shuffle_discard_into_deck': {
       if (!actor) break
-      applyDeckOrder(nextGame.cards, actor, action.orderedCardIds)
+      applyDiscardRecycleOrder(nextGame.cards, actor, action.orderedCardIds, nextGame.config)
       break
     }
     case 'complete_game': {

@@ -16,6 +16,7 @@ const props = withDefaults(
     selectedCardId?: string | null
     statusLabels?: Record<string, string>
     showGrid?: boolean
+    isCardInteractive?: (card: Crawlv3CardState) => boolean
     cardPositionStyle: (card: Crawlv3CardState) => Record<string, string>
     getCardRenderFace: (card: Crawlv3CardState) => boolean
   }>(),
@@ -26,6 +27,7 @@ const props = withDefaults(
     matchFieldImageAspect: false,
     statusLabels: () => ({}),
     showGrid: false,
+    isCardInteractive: () => true,
   },
 )
 
@@ -41,6 +43,7 @@ const emit = defineEmits<{
   (e: 'card-tooltip', card: Crawlv3CardState, event: MouseEvent): void
   (e: 'card-tooltip-clear', card: Crawlv3CardState): void
   (e: 'decrement-status', instanceId: string, kind: Crawlv3StatusType, key: string): void
+  (e: 'increment-status', instanceId: string, kind: Crawlv3StatusType, key: string): void
   (e: 'zone-pointerdown', zone: Crawlv3Zone, event: PointerEvent): void
   (e: 'zone-resize', size: { width: number; height: number }): void
 }>()
@@ -134,6 +137,7 @@ onBeforeUnmount(() => {
         fill-parent
         :show-face="getCardRenderFace(card)"
         :selected="selectedCardId === card.instanceId"
+        :interactive="isCardInteractive(card)"
         :status-labels="statusLabels"
         @pointerdown="emit('card-pointerdown', card, $event)"
         @contextmenu.prevent="emit('card-preview', card.instanceId)"
@@ -141,6 +145,7 @@ onBeforeUnmount(() => {
         @mousemove="emit('card-tooltip', card, $event)"
         @mouseleave="emit('card-tooltip-clear', card)"
         @decrement-status="emit('decrement-status', card.instanceId, $event.kind, $event.key)"
+        @increment-status="emit('increment-status', card.instanceId, $event.kind, $event.key)"
       />
     </div>
   </div>

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import CrawlV3CardPreviewModal from '@/components/crawlv3/CrawlV3CardPreviewModal.vue'
 import CrawlV3CatalogTooltip from '@/components/crawlv3/CrawlV3CatalogTooltip.vue'
+import CrawlV3Select from '@/components/crawlv3/CrawlV3Select.vue'
 import { useCrawlv3Catalog } from '@/composables/crawlv3/useCrawlv3Catalog'
 import { useCrawlv3Controller } from '@/composables/crawlv3/useCrawlv3Controller'
 import { getCardTags } from '@/lib/crawlv3/card-display'
@@ -43,6 +44,12 @@ const {
 })
 
 const catalogSearch = ref('')
+const catalogCostFilter = ref('')
+const catalogRaceFilter = ref('')
+const catalogTypeFilter = ref('')
+const catalogCategoryFilter = ref('')
+const catalogSortField = ref<'default' | 'cost' | 'atk' | 'def'>('default')
+const catalogSortDirection = ref<'asc' | 'desc'>('asc')
 const selectionDirty = ref(false)
 const localSelectionIds = ref<string[]>([])
 const configExpanded = ref(false)
@@ -74,6 +81,50 @@ const selectedCatalogRows = computed(() => {
   return catalogCards.value.map((card) => ({ card, count: counts[card.id] ?? 0 })).filter((row) => row.count > 0)
 })
 
+function splitCatalogValues(value: string) {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function getUniqueCatalogOptions(getValues: (card: Crawlv3CatalogCard) => string[]) {
+  return [...new Set(catalogCards.value.flatMap(getValues))]
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))
+}
+
+const costFilterOptions = computed(() => getUniqueCatalogOptions((card) => [card.cost.trim()]))
+const raceFilterOptions = computed(() => getUniqueCatalogOptions((card) => splitCatalogValues(card.race)))
+const typeFilterOptions = computed(() => getUniqueCatalogOptions((card) => splitCatalogValues(card.damageType)))
+const categoryFilterOptions = computed(() => getUniqueCatalogOptions((card) => splitCatalogValues(card.category)))
+const costSelectOptions = computed(() => [
+  { value: '', label: 'Any' },
+  ...costFilterOptions.value.map((option) => ({ value: option, label: option })),
+])
+const raceSelectOptions = computed(() => [
+  { value: '', label: 'Any' },
+  ...raceFilterOptions.value.map((option) => ({ value: option, label: option })),
+])
+const typeSelectOptions = computed(() => [
+  { value: '', label: 'Any' },
+  ...typeFilterOptions.value.map((option) => ({ value: option, label: option })),
+])
+const categorySelectOptions = computed(() => [
+  { value: '', label: 'Any' },
+  ...categoryFilterOptions.value.map((option) => ({ value: option, label: option })),
+])
+const sortSelectOptions = [
+  { value: 'default', label: 'Default' },
+  { value: 'cost', label: 'Cost' },
+  { value: 'atk', label: 'ATK' },
+  { value: 'def', label: 'DEF' },
+]
+const sortDirectionOptions = [
+  { value: 'asc', label: 'Increasing' },
+  { value: 'desc', label: 'Decreasing' },
+]
+
 function getCatalogSearchRank(card: Crawlv3CatalogCard, query: string) {
   const normalizedQuery = query.trim().toLowerCase()
   if (!normalizedQuery) return 0
@@ -87,13 +138,36 @@ function getCatalogSearchRank(card: Crawlv3CatalogCard, query: string) {
 }
 
 const filteredCatalogCards = computed(() => {
-  if (!catalogSearch.value.trim()) return catalogCards.value
   const query = catalogSearch.value.trim().toLowerCase()
+  const hasSearch = query.length > 0
+  const sortField = catalogSortField.value
 
   return catalogCards.value
-    .map((card, index) => ({ card, index, rank: getCatalogSearchRank(card, query) }))
+    .map((card, index) => ({ card, index, rank: hasSearch ? getCatalogSearchRank(card, query) : 0 }))
     .filter((result): result is { card: Crawlv3CatalogCard; index: number; rank: number } => result.rank !== null)
-    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .filter(({ card }) => {
+      if (catalogCostFilter.value && card.cost.trim() !== catalogCostFilter.value) return false
+      if (catalogRaceFilter.value && !splitCatalogValues(card.race).includes(catalogRaceFilter.value)) return false
+      if (catalogTypeFilter.value && !splitCatalogValues(card.damageType).includes(catalogTypeFilter.value))
+        return false
+      if (catalogCategoryFilter.value && !splitCatalogValues(card.category).includes(catalogCategoryFilter.value)) {
+        return false
+      }
+      return true
+    })
+    .sort((left, right) => {
+      if (sortField !== 'default') {
+        const direction = catalogSortDirection.value === 'asc' ? 1 : -1
+        const leftValue = Number(left.card[sortField])
+        const rightValue = Number(right.card[sortField])
+        const leftSortable = Number.isFinite(leftValue) ? leftValue : Number.POSITIVE_INFINITY
+        const rightSortable = Number.isFinite(rightValue) ? rightValue : Number.POSITIVE_INFINITY
+        const result = leftSortable - rightSortable || left.card.title.localeCompare(right.card.title)
+        if (result) return result * direction
+      }
+
+      return left.rank - right.rank || left.index - right.index
+    })
     .map((result) => result.card)
 })
 
@@ -168,6 +242,10 @@ function clearCatalogSelection() {
   localSelectionIds.value = []
 }
 
+function clearCatalogSearch() {
+  catalogSearch.value = ''
+}
+
 function updateCatalogTooltip(card: Crawlv3CatalogCard, event: MouseEvent) {
   catalogTooltipCard.value = card
   catalogTooltipPoint.value = {
@@ -181,6 +259,10 @@ function clearCatalogTooltip(card?: Crawlv3CatalogCard) {
     catalogTooltipCard.value = null
     catalogTooltipPoint.value = null
   }
+}
+
+function getSelectedCardSubtext(card: Crawlv3CatalogCard) {
+  return [`Cost ${card.cost || '-'}`, getCardTags(card)].filter(Boolean).join(' | ')
 }
 
 watch(
@@ -397,7 +479,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
 
             <div class="grid gap-3 sm:grid-cols-2">
               <label class="block">
-                <span class="mb-2 block text-sm text-white/65">Default life points</span>
+                <span class="mb-2 block text-sm text-white/65">Default hit points</span>
                 <input
                   v-model.number="configDraft.defaultLifePoints"
                   :readonly="!isHost"
@@ -517,7 +599,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               :disabled="!canEditDeckSelection"
               @click="clearCatalogSelection"
             >
-              Clear
+              Clear Selection
             </button>
             <button
               v-if="!isDeckReady"
@@ -555,9 +637,48 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             placeholder="Search cards"
             class="min-w-[16rem] flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
           />
-          <div class="rounded-full bg-white/5 px-4 py-2 text-sm text-white/70">
+          <button
+            type="button"
+            class="cursor-pointer rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!catalogSearch"
+            @click="clearCatalogSearch"
+          >
+            Clear
+          </button>
+          <div class="inline-flex items-center rounded-full bg-white/5 px-4 py-3 text-sm text-white/70">
             {{ localSelectionIds.length }} selected
           </div>
+        </div>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Cost</span>
+            <CrawlV3Select v-model="catalogCostFilter" :options="costSelectOptions" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Race</span>
+            <CrawlV3Select v-model="catalogRaceFilter" :options="raceSelectOptions" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Type</span>
+            <CrawlV3Select v-model="catalogTypeFilter" :options="typeSelectOptions" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Category</span>
+            <CrawlV3Select v-model="catalogCategoryFilter" :options="categorySelectOptions" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Sort</span>
+            <CrawlV3Select v-model="catalogSortField" :options="sortSelectOptions" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">Direction</span>
+            <CrawlV3Select
+              v-model="catalogSortDirection"
+              :options="sortDirectionOptions"
+              :disabled="catalogSortField === 'default'"
+            />
+          </label>
         </div>
 
         <div
@@ -598,7 +719,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
                 :aria-label="canEditDeckSelection ? `Add ${card.title}` : 'Unready to change your selection'"
                 @click="addCardSelection(card.id)"
               >
-                <div class="relative aspect-[63/88] overflow-hidden bg-black/20">
+                <div class="relative aspect-[63/88] overflow-hidden bg-transparent">
                   <img v-if="card.imageUrl" :src="card.imageUrl" :alt="card.title" class="h-full w-full object-cover" />
                   <div
                     v-else
@@ -646,7 +767,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             :disabled="!canEditDeckSelection || !localSelectionIds.length"
             @click="clearCatalogSelection"
           >
-            Clear
+            Clear Selection
           </button>
         </div>
 
@@ -662,12 +783,14 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             v-for="{ card, count } in selectedCatalogRows"
             :key="`selected-${card.id}`"
             type="button"
-            class="flex w-full cursor-pointer items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 p-2 text-left transition hover:border-rose-300/35 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!canEditDeckSelection"
+            class="flex w-full items-center gap-3 rounded-[1rem] border border-white/10 bg-white/5 p-2 text-left transition hover:border-rose-300/35 hover:bg-rose-300/10"
+            :class="canEditDeckSelection ? 'cursor-pointer' : 'cursor-default opacity-70'"
+            :aria-disabled="!canEditDeckSelection"
             :aria-label="`Remove one ${card.title}`"
-            @click="removeCardSelection(card.id)"
+            @click="canEditDeckSelection && removeCardSelection(card.id)"
+            @contextmenu.prevent.stop="catalogPreviewCard = card"
           >
-            <div class="h-14 w-10 shrink-0 overflow-hidden border border-white/10 bg-black/25">
+            <div class="h-14 w-10 shrink-0 overflow-hidden border border-white/10 bg-transparent">
               <img v-if="card.imageUrl" :src="card.imageUrl" :alt="card.title" class="h-full w-full object-cover" />
               <div
                 v-else
@@ -678,7 +801,7 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             </div>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-semibold text-white/90">{{ card.title }}</p>
-              <p v-if="getCardTags(card)" class="mt-0.5 truncate text-xs text-white/45">{{ getCardTags(card) }}</p>
+              <p class="mt-0.5 truncate text-xs text-white/45">{{ getSelectedCardSubtext(card) }}</p>
             </div>
             <span class="rounded-full bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950"> x{{ count }} </span>
           </button>

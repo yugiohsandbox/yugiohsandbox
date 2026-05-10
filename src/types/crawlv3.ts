@@ -1,6 +1,6 @@
 export type Crawlv3Player = 'player1' | 'player2'
 
-export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'extraDeck' | 'discard'
+export type Crawlv3Zone = 'table' | 'hand' | 'deck' | 'extraDeck' | 'discard' | 'exhausted'
 export type Crawlv3StatusType = 'buff' | 'debuff'
 
 export interface Crawlv3CatalogHeaders {
@@ -146,7 +146,9 @@ export type Crawlv3Action =
   | {
       type: 'patch_card'
       instanceId: string
-      patch: Partial<Pick<Crawlv3CardState, 'faceUp' | 'rotated' | 'atk' | 'def' | 'buffs' | 'debuffs'>>
+      patch: Partial<
+        Pick<Crawlv3CardState, 'faceUp' | 'rotated' | 'atk' | 'def' | 'race' | 'damageType' | 'buffs' | 'debuffs'>
+      >
       actionId: string
     }
   | {

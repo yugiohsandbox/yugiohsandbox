@@ -31,6 +31,8 @@ export function formatZoneLabel(zone: Crawlv3Zone) {
       return 'Extra Deck'
     case 'discard':
       return 'Discard'
+    case 'exhausted':
+      return 'Exhausted'
   }
 }
 

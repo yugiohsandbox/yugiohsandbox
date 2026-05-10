@@ -20,7 +20,7 @@ export const CRAWLV3_DEV_CONFIG: { defaultRoomConfig: Crawlv3CatalogConfig } = {
     imageOverridesText: '',
     fieldImageUrl: 'https://yugioh-simulator.s3.eu-west-2.amazonaws.com/card_art/field.png',
     statusCsvUrl:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwWAkxl2JNM8SOhFda9s6R5y3OSw-9Fbf0g63aGHb4hlBbZo11-9whcd7CDYYPew/pub?gid=2084882364&single=true&output=csv',
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vQw_jeNanf9w1oUMErdbYoDdzWK40lKHyrqQxF-kThBxcVjmXD83dCMhIP0i3IM0_NCCW4UFQckvUeH/pub?gid=2084882364&single=true&output=csv',
     statusHeaders: {
       id: 'id',
       name: 'name',

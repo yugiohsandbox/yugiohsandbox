@@ -13,6 +13,7 @@ const props = defineProps<{
   allowMoveToDeck?: boolean
   allowMoveToExtraDeck?: boolean
   allowMoveToDiscard?: boolean
+  allowMoveToExhausted?: boolean
   statusLabels?: Record<string, string>
 }>()
 
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   (e: 'move-to-deck', instanceId: string): void
   (e: 'move-to-extra-deck', instanceId: string): void
   (e: 'move-to-discard', instanceId: string): void
+  (e: 'move-to-exhausted', instanceId: string): void
 }>()
 
 const search = ref('')
@@ -87,6 +89,8 @@ const buttonClasses = {
     'cursor-pointer rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-1.5 text-xs font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
   discard:
     'cursor-pointer rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
+  exhausted:
+    'cursor-pointer rounded-full border border-fuchsia-300/35 bg-fuchsia-300/15 px-3 py-1.5 text-xs font-semibold text-fuchsia-100 transition hover:border-fuchsia-300/55 hover:bg-fuchsia-300/25 disabled:cursor-not-allowed disabled:opacity-50',
 } as const
 </script>
 
@@ -168,6 +172,14 @@ const buttonClasses = {
                   @click="emit('move-to-discard', card.instanceId)"
                 >
                   Move to Discard
+                </button>
+                <button
+                  v-if="allowMoveToExhausted"
+                  type="button"
+                  :class="buttonClasses.exhausted"
+                  @click="emit('move-to-exhausted', card.instanceId)"
+                >
+                  Move to Exhausted
                 </button>
                 <button type="button" :class="buttonClasses.hand" @click="emit('move-to-hand', card.instanceId)">
                   Move to Hand

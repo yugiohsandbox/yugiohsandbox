@@ -12,12 +12,14 @@ const props = withDefaults(
     selected?: boolean
     ghosted?: boolean
     fillParent?: boolean
+    interactive?: boolean
     statusLabels?: Record<string, string>
   }>(),
   {
     selected: false,
     ghosted: false,
     fillParent: false,
+    interactive: true,
     statusLabels: () => ({}),
   },
 )
@@ -29,10 +31,19 @@ defineEmits<{
   (e: 'mousemove', event: MouseEvent): void
   (e: 'mouseleave', event: MouseEvent): void
   (e: 'decrement-status', payload: { kind: 'buff' | 'debuff'; key: string }): void
+  (e: 'increment-status', payload: { kind: 'buff' | 'debuff'; key: string }): void
 }>()
 
-const buffEntries = computed(() => Object.entries(props.card.buffs))
-const debuffEntries = computed(() => Object.entries(props.card.debuffs))
+function getSortedStatusEntries(record: Record<string, number>) {
+  return Object.entries(record).sort(([leftKey], [rightKey]) => {
+    const leftLabel = props.statusLabels[leftKey] ?? leftKey
+    const rightLabel = props.statusLabels[rightKey] ?? rightKey
+    return leftLabel.localeCompare(rightLabel) || leftKey.localeCompare(rightKey)
+  })
+}
+
+const buffEntries = computed(() => getSortedStatusEntries(props.card.buffs))
+const debuffEntries = computed(() => getSortedStatusEntries(props.card.debuffs))
 const cardStyle = computed(() => ({
   width: props.fillParent ? '100%' : 'var(--crawlv3-card-width, clamp(5.2rem, 8vw, 8.4rem))',
   transform: props.card.rotated ? 'rotate(90deg)' : undefined,
@@ -42,9 +53,10 @@ const cardStyle = computed(() => ({
 <template>
   <button
     type="button"
-    class="relative block aspect-[63/88] cursor-pointer overflow-hidden border bg-neutral-950 text-left shadow-[0_1rem_2.5rem_rgba(0,0,0,0.35)] transition-transform"
+    class="relative block aspect-[63/88] overflow-hidden border bg-transparent text-left shadow-[0_1rem_2.5rem_rgba(0,0,0,0.35)] transition-transform"
     :class="[
-      selected ? 'border-amber-300 ring-2 ring-amber-300/80' : 'border-white/15',
+      interactive ? 'cursor-pointer' : 'cursor-default',
+      selected ? 'border-amber-300 ring-2 ring-amber-300/80' : 'border-transparent',
       ghosted ? 'opacity-40' : 'opacity-100',
     ]"
     :style="cardStyle"
@@ -70,9 +82,11 @@ const cardStyle = computed(() => ({
           v-for="[key, value] in buffEntries"
           :key="`buff-${key}`"
           type="button"
-          class="cursor-pointer rounded-full bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950"
+          class="rounded-full bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950"
+          :class="interactive ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop
           @click.stop="$emit('decrement-status', { kind: 'buff', key })"
+          @contextmenu.prevent.stop="$emit('increment-status', { kind: 'buff', key })"
         >
           {{ statusLabels[key] ?? key }} {{ value }}
         </button>
@@ -80,9 +94,11 @@ const cardStyle = computed(() => ({
           v-for="[key, value] in debuffEntries"
           :key="`debuff-${key}`"
           type="button"
-          class="cursor-pointer rounded-full bg-rose-400/85 px-1.5 py-0.5 font-semibold text-rose-950"
+          class="rounded-full bg-rose-400/85 px-1.5 py-0.5 font-semibold text-rose-950"
+          :class="interactive ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop
           @click.stop="$emit('decrement-status', { kind: 'debuff', key })"
+          @contextmenu.prevent.stop="$emit('increment-status', { kind: 'debuff', key })"
         >
           {{ statusLabels[key] ?? key }} {{ value }}
         </button>

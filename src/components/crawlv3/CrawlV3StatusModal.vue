@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 
 import type { Crawlv3CardState, Crawlv3StatusDefinition } from '@/types/crawlv3'
 
@@ -88,11 +88,76 @@ function clearValue(record: Record<string, number>, key: string) {
   record[key] = 0
 }
 
+function clearAllLocalStatuses() {
+  for (const key of Object.keys(localBuffs)) {
+    localBuffs[key] = 0
+  }
+  for (const key of Object.keys(localDebuffs)) {
+    localDebuffs[key] = 0
+  }
+}
+
+function saveLocalStatuses() {
+  emit('save', {
+    buffs: cleanRecord(localBuffs),
+    debuffs: cleanRecord(localDebuffs),
+  })
+}
+
+function getShortcutDigit(event: KeyboardEvent) {
+  if (/^Digit\d$/.test(event.code)) return event.code.slice(5)
+  if (/^Numpad\d$/.test(event.code)) return event.code.slice(6)
+  return null
+}
+
+function digitToOptionIndex(digit: string) {
+  return digit === '0' ? 9 : Number(digit) - 1
+}
+
+function stopModalShortcut(event: KeyboardEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  event.stopImmediatePropagation()
+}
+
+function handleModalKeydown(event: KeyboardEvent) {
+  if (event.repeat) return
+
+  const digit = getShortcutDigit(event)
+  if (digit !== null) {
+    stopModalShortcut(event)
+    const optionIndex = digitToOptionIndex(digit)
+    const option = event.shiftKey ? debuffDefinitions.value[optionIndex] : buffDefinitions.value[optionIndex]
+    if (!option) return
+    increment(event.shiftKey ? localDebuffs : localBuffs, option.id)
+    return
+  }
+
+  if (event.key.toLowerCase() === 'c') {
+    stopModalShortcut(event)
+    clearAllLocalStatuses()
+    return
+  }
+
+  if (event.key === 'Enter') {
+    stopModalShortcut(event)
+    saveLocalStatuses()
+  }
+}
+
 watch(
   () => [props.card, props.statusDefinitions],
   () => syncRecords(),
   { immediate: true },
 )
+
+onMounted(() => {
+  window.addEventListener('keydown', handleModalKeydown, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleModalKeydown, true)
+})
 </script>
 
 <template>
@@ -124,20 +189,27 @@ watch(
             <h3 class="text-lg font-semibold text-emerald-200">Buffs</h3>
             <div class="mt-4 space-y-3">
               <div
-                v-for="option in buffDefinitions"
+                v-for="(option, optionIndex) in buffDefinitions"
                 :key="option.id"
                 class="grid gap-3 rounded-2xl bg-black/20 px-4 py-3"
               >
                 <div class="flex items-center justify-between gap-4">
-                  <span class="group relative font-medium">
-                    {{ option.name }}
+                  <div class="flex min-w-0 items-center gap-3">
                     <span
-                      v-if="option.description"
-                      class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                      class="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-emerald-300/25 bg-emerald-300/12 text-xs font-bold text-emerald-100"
                     >
-                      {{ option.description }}
+                      {{ optionIndex === 9 ? 0 : optionIndex + 1 }}
                     </span>
-                  </span>
+                    <span class="group relative min-w-0 font-medium">
+                      {{ option.name }}
+                      <span
+                        v-if="option.description"
+                        class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                      >
+                        {{ option.description }}
+                      </span>
+                    </span>
+                  </div>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
@@ -171,20 +243,27 @@ watch(
             <h3 class="text-lg font-semibold text-rose-200">Debuffs</h3>
             <div class="mt-4 space-y-3">
               <div
-                v-for="option in debuffDefinitions"
+                v-for="(option, optionIndex) in debuffDefinitions"
                 :key="option.id"
                 class="grid gap-3 rounded-2xl bg-black/20 px-4 py-3"
               >
                 <div class="flex items-center justify-between gap-4">
-                  <span class="group relative font-medium">
-                    {{ option.name }}
+                  <div class="flex min-w-0 items-center gap-3">
                     <span
-                      v-if="option.description"
-                      class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                      class="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-rose-300/25 bg-rose-300/12 text-xs font-bold text-rose-100"
                     >
-                      {{ option.description }}
+                      {{ optionIndex === 9 ? 0 : optionIndex + 1 }}
                     </span>
-                  </span>
+                    <span class="group relative min-w-0 font-medium">
+                      {{ option.name }}
+                      <span
+                        v-if="option.description"
+                        class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-white/10 bg-neutral-950/95 p-3 text-xs leading-relaxed text-white/80 shadow-2xl group-hover:block"
+                      >
+                        {{ option.description }}
+                      </span>
+                    </span>
+                  </div>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
@@ -231,12 +310,7 @@ watch(
           <button
             type="button"
             class="cursor-pointer rounded-full bg-amber-300 px-5 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
-            @click="
-              emit('save', {
-                buffs: cleanRecord(localBuffs),
-                debuffs: cleanRecord(localDebuffs),
-              })
-            "
+            @click="saveLocalStatuses"
           >
             Save Changes
           </button>

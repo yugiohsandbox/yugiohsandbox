@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, ref, type ComputedRef, type Ref } from 'vue'
 
-import { clampRatio, getTopDeckCard, getTopPileCard } from '@/lib/crawlv3/game-state'
+import { clampRatio, getTopPileCard } from '@/lib/crawlv3/game-state'
 import { shuffleItems } from '@/lib/crawlv3/ui-utils'
 import type { Crawlv3CardState, Crawlv3Game, Crawlv3Player, Crawlv3Zone } from '@/types/crawlv3'
 import type { Crawlv3DragState, Crawlv3PileZone, Crawlv3TooltipState, QueuedCrawlv3Action } from '@/types/crawlv3-ui'
@@ -19,9 +19,12 @@ type UseCrawlv3BoardOptions = {
   onClearTransientUi?: () => void
 }
 
-type TopMovablePileZone = Extract<Crawlv3PileZone, 'deck' | 'discard'>
-
 const fixedBoardCardScale = 0.95
+const pileZones = new Set<Crawlv3Zone>(['deck', 'extraDeck', 'discard', 'exhausted'])
+
+function isPileZone(zone: Crawlv3Zone): zone is Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard' | 'exhausted'> {
+  return pileZones.has(zone)
+}
 
 function parseCategoryList(categoriesText: string | undefined) {
   return (categoriesText ?? '')
@@ -83,15 +86,18 @@ export function useCrawlv3Board({
   }
 
   function getCardRenderFace(card: Crawlv3CardState) {
-    if (!myPlayer.value) return card.zone !== 'hand' && card.faceUp
+    if (!myPlayer.value)
+      return card.zone !== 'hand' && card.zone !== 'discard' && card.zone !== 'exhausted' && card.faceUp
     if (card.zone === 'hand') return card.owner === myPlayer.value
+    if ((card.zone === 'discard' || card.zone === 'exhausted') && card.owner !== myPlayer.value) return false
     return card.faceUp
   }
 
   function canSeeCardDetails(card: Crawlv3CardState) {
-    if (!myPlayer.value) return card.faceUp && card.zone !== 'hand'
+    if (!myPlayer.value)
+      return card.faceUp && card.zone !== 'hand' && card.zone !== 'discard' && card.zone !== 'exhausted'
     if (card.owner === myPlayer.value) return true
-    if (card.zone === 'hand') return false
+    if (card.zone === 'hand' || card.zone === 'discard' || card.zone === 'exhausted') return false
     return card.faceUp
   }
 
@@ -109,12 +115,7 @@ export function useCrawlv3Board({
   function cardPositionStyle(card: Crawlv3CardState) {
     const scale = boardCardScale.value.toFixed(2)
     const point = normalizeZonePoint(card.zone, card.x, card.y)
-    const width =
-      card.zone === 'table'
-        ? fieldCardWidth.value
-        : card.zone === 'hand'
-          ? fieldCardWidth.value
-          : undefined
+    const width = card.zone === 'table' ? fieldCardWidth.value : card.zone === 'hand' ? fieldCardWidth.value : undefined
 
     return {
       left: `${(point.x * 100).toFixed(2)}%`,
@@ -139,6 +140,26 @@ export function useCrawlv3Board({
       faceUp: !faceDown,
       rotated: faceDown,
     }
+  }
+
+  function getDragPreviewPlacement(
+    card: Crawlv3CardState,
+    target: ReturnType<typeof resolveDropTarget> | null,
+    event: PointerEvent,
+  ) {
+    if (target?.zone === 'table' && event.shiftKey) {
+      return { faceUp: false, rotated: true }
+    }
+
+    if (card && target?.zone === 'table' && card.zone !== 'table') {
+      return getTablePlacementPatch(card)
+    }
+
+    if (target?.zone === 'hand') {
+      return { faceUp: true, rotated: false }
+    }
+
+    return null
   }
 
   function startCardDrag(card: Crawlv3CardState, event: PointerEvent) {
@@ -181,7 +202,7 @@ export function useCrawlv3Board({
       const owner = dropElement.dataset.crawlv3Owner as Crawlv3Player | undefined
       const rect = dropElement.getBoundingClientRect()
 
-      if (zone === 'deck' || zone === 'extraDeck' || zone === 'discard') {
+      if (isPileZone(zone)) {
         return { zone, owner }
       }
 
@@ -216,7 +237,7 @@ export function useCrawlv3Board({
 
     const card = game.value?.cards[currentDrag.instanceId]
     const target = nextActive ? resolveDropTarget(event.clientX, event.clientY, currentDrag) : null
-    const previewPlacement = card && target?.zone === 'table' ? getTablePlacementPatch(card) : null
+    const previewPlacement = card ? getDragPreviewPlacement(card, target, event) : null
 
     dragState.value = {
       ...currentDrag,
@@ -248,28 +269,33 @@ export function useCrawlv3Board({
     const target = resolveDropTarget(event.clientX, event.clientY, currentDrag)
     if (!target || !myPlayer.value) return
 
-    if (
-      (target.zone === 'deck' || target.zone === 'extraDeck' || target.zone === 'discard' || target.zone === 'hand') &&
-      target.owner !== myPlayer.value
-    ) {
+    if ((isPileZone(target.zone) || target.zone === 'hand') && target.owner !== myPlayer.value) {
+      return
+    }
+
+    if (isPileZone(target.zone) && target.zone === card.zone && target.owner === card.owner) {
       return
     }
 
     const entersTableFromAnotherZone = target.zone === 'table' && card.zone !== 'table'
-    const tablePlacementPatch = entersTableFromAnotherZone ? getTablePlacementPatch(card) : {}
+    const tablePlacementPatch =
+      target.zone === 'table' && event.shiftKey
+        ? { faceUp: false, rotated: true }
+        : entersTableFromAnotherZone
+          ? getTablePlacementPatch(card)
+          : {}
 
     enqueueAction({
       type: 'move_card',
       instanceId: card.instanceId,
       zone: target.zone,
-      ...(target.zone === 'deck' || target.zone === 'extraDeck' || target.zone === 'discard'
-        ? {}
-        : { x: target.x, y: target.y }),
+      ...(isPileZone(target.zone) ? {} : { x: target.x, y: target.y }),
+      ...(target.zone === 'hand' ? { faceUp: true, rotated: false } : {}),
       ...tablePlacementPatch,
     })
   }
 
-  function defaultZonePosition(zone: Exclude<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard'>) {
+  function defaultZonePosition(zone: Exclude<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard' | 'exhausted'>) {
     const zoneCards = zone === 'table' ? tableCards.value.length : myHandCards.value.length
     if (zone === 'hand') {
       const slotIndex = zoneCards % 6
@@ -304,7 +330,7 @@ export function useCrawlv3Board({
   }
 
   function moveCardToZone(instanceId: string, zone: Crawlv3Zone) {
-    if (zone === 'deck' || zone === 'extraDeck' || zone === 'discard') {
+    if (isPileZone(zone)) {
       enqueueAction({
         type: 'move_card',
         instanceId,
@@ -323,19 +349,40 @@ export function useCrawlv3Board({
       zone,
       x: position.x,
       y: position.y,
+      ...(zone === 'hand' ? { faceUp: true, rotated: false } : {}),
       ...tablePlacementPatch,
     })
   }
 
-  function moveTopPileCardTo(sourceZone: TopMovablePileZone, targetZone: Crawlv3Zone) {
+  function drawTopDeckCard() {
     if (!myPlayer.value || !game.value) return
-    const topCard =
-      sourceZone === 'deck'
-        ? getTopDeckCard(game.value.cards, myPlayer.value)
-        : getTopPileCard(game.value.cards, 'discard', myPlayer.value)
 
-    if (!topCard) return
-    moveCardToZone(topCard.instanceId, targetZone)
+    const topDeckCard = getTopPileCard(game.value.cards, 'deck', myPlayer.value)
+    if (topDeckCard) {
+      moveCardToZone(topDeckCard.instanceId, 'hand')
+      return
+    }
+
+    if (!myDiscardCards.value.length) return
+
+    const extraDeckCategories = parseCategoryList(game.value.config.extraDeckCategoriesText)
+    const shuffledCards = shuffleItems(myDiscardCards.value)
+    const drawnCard = [...shuffledCards].reverse().find((card) => !cardMatchesCategories(card, extraDeckCategories))
+
+    enqueueAction({
+      type: 'shuffle_discard_into_deck',
+      orderedCardIds: shuffledCards.map((card) => card.instanceId),
+    })
+
+    if (!drawnCard) return
+
+    enqueueAction({
+      type: 'move_card',
+      instanceId: drawnCard.instanceId,
+      zone: 'hand',
+      faceUp: true,
+      rotated: false,
+    })
   }
 
   function shuffleDeck() {
@@ -391,7 +438,7 @@ export function useCrawlv3Board({
     adjustBoardCardScale,
     startCardDrag,
     moveCardToZone,
-    moveTopPileCardTo,
+    drawTopDeckCard,
     shuffleDeck,
     shuffleDiscardIntoDeck,
     updateTooltip,

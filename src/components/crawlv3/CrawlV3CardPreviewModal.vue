@@ -22,7 +22,7 @@ const emit = defineEmits<{
           <img
             :src="showFace ? card.imageUrl || cardBackImage : cardBackImage"
             :alt="showFace ? card.title : 'Face-down card'"
-            class="h-[min(85vh,37.5rem)] max-h-[85vh] rounded-[1.5rem] border border-white/15 bg-neutral-950 object-contain shadow-2xl"
+            class="h-[min(85vh,37.5rem)] max-h-[85vh] rounded-[1.5rem] border border-white/15 bg-transparent object-contain shadow-2xl"
             @click.stop
           />
         </div>

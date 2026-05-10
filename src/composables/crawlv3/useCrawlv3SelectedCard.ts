@@ -39,6 +39,8 @@ export function useCrawlv3SelectedCard({
 
   const selectedAtk = ref('')
   const selectedDef = ref('')
+  const selectedRace = ref('')
+  const selectedDamageType = ref('')
   const focusedSelectedStat = ref<'atk' | 'def' | null>(null)
 
   const selectedCard = computed(() => {
@@ -71,6 +73,17 @@ export function useCrawlv3SelectedCard({
   const statusLabels = computed(() =>
     Object.fromEntries(statusDefinitions.value.map((status) => [status.id, status.name])),
   )
+
+  const raceOptions = computed(() => getUniqueCardValues('race'))
+  const damageTypeOptions = computed(() => getUniqueCardValues('damageType'))
+
+  function getUniqueCardValues(key: 'race' | 'damageType') {
+    const values = Object.values(game.value?.cards ?? {})
+      .map((card) => card[key].trim())
+      .filter(Boolean)
+
+    return [...new Set(values)].sort((left, right) => left.localeCompare(right))
+  }
 
   function commitPlayerStats(
     player: Crawlv3Player,
@@ -149,6 +162,21 @@ export function useCrawlv3SelectedCard({
     focusedSelectedStat.value = null
   }
 
+  function saveSelectedDetail(detail: 'race' | 'damageType') {
+    if (!selectedOwnCard.value) return
+
+    const nextValue = detail === 'race' ? selectedRace.value : selectedDamageType.value
+    if (nextValue === selectedOwnCard.value[detail]) return
+
+    enqueueAction({
+      type: 'patch_card',
+      instanceId: selectedOwnCard.value.instanceId,
+      patch: {
+        [detail]: nextValue,
+      },
+    })
+  }
+
   function toggleSelectedFace() {
     if (!selectedOwnCard.value) return
     enqueueAction({
@@ -193,6 +221,22 @@ export function useCrawlv3SelectedCard({
     })
   }
 
+  function incrementCardStatus(instanceId: string, kind: Crawlv3StatusType, key: string) {
+    const card = game.value?.cards[instanceId]
+    if (!card || !myPlayer.value || card.owner !== myPlayer.value) return
+
+    const nextRecord = {
+      ...(kind === 'buff' ? card.buffs : card.debuffs),
+    }
+    nextRecord[key] = (nextRecord[key] ?? 0) + 1
+
+    enqueueAction({
+      type: 'patch_card',
+      instanceId,
+      patch: kind === 'buff' ? { buffs: nextRecord } : { debuffs: nextRecord },
+    })
+  }
+
   function saveSelectedStatuses(payload: { buffs: Record<string, number>; debuffs: Record<string, number> }) {
     if (!selectedOwnCard.value) return
     enqueueAction({
@@ -205,14 +249,21 @@ export function useCrawlv3SelectedCard({
 
   function getCardStatusEntries(card: Crawlv3CardState, type: Crawlv3StatusType): Crawlv3CardStatusEntry[] {
     const source = type === 'buff' ? card.buffs : card.debuffs
+    const definitionOrder = new Map(statusDefinitions.value.map((status, index) => [status.id, index]))
 
-    return Object.entries(source).map(([id, value]) => ({
-      id,
-      name: statusDefinitionMap.value[id]?.name ?? id,
-      description: statusDefinitionMap.value[id]?.description ?? '',
-      type,
-      value,
-    }))
+    return Object.entries(source)
+      .map(([id, value]) => ({
+        id,
+        name: statusDefinitionMap.value[id]?.name ?? id,
+        description: statusDefinitionMap.value[id]?.description ?? '',
+        type,
+        value,
+      }))
+      .sort((left, right) => {
+        const leftOrder = definitionOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER
+        const rightOrder = definitionOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER
+        return leftOrder - rightOrder || left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+      })
   }
 
   function clearSelectedCardState() {
@@ -239,6 +290,8 @@ export function useCrawlv3SelectedCard({
     (card) => {
       if (focusedSelectedStat.value !== 'atk') selectedAtk.value = card?.atk ?? ''
       if (focusedSelectedStat.value !== 'def') selectedDef.value = card?.def ?? ''
+      selectedRace.value = card?.race ?? ''
+      selectedDamageType.value = card?.damageType ?? ''
     },
     { immediate: true },
   )
@@ -265,21 +318,27 @@ export function useCrawlv3SelectedCard({
     statDrafts,
     selectedAtk,
     selectedDef,
+    selectedRace,
+    selectedDamageType,
     focusedSelectedStat,
     selectedCard,
     selectedOwnCard,
     selectedOwnCardPreview,
     statusCard,
     statusLabels,
+    raceOptions,
+    damageTypeOptions,
     savePlayerStats,
     adjustLifePoints,
     adjustActionPoints,
     resetActionPoints,
     saveSelectedStat,
     blurSelectedStat,
+    saveSelectedDetail,
     toggleSelectedFace,
     toggleSelectedRotation,
     decrementCardStatus,
+    incrementCardStatus,
     saveSelectedStatuses,
     getCardStatusEntries,
     clearSelectedCardState,
