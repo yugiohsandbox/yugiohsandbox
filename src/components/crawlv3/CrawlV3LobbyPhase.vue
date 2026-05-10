@@ -225,11 +225,39 @@ function removeCardSelection(cardId: string) {
 
 function saveDeckSelection(cardIds: string[]) {
   if (!canEditDeckSelection.value) return
-  const cardsById = new Map(catalogCards.value.map((card) => [card.id, card]))
+  const cardsById = getCatalogCardsById()
   localSelectionIds.value = cardIds
   enqueueAction({
     type: 'select_deck',
     cards: cardIds.map((cardId) => cardsById.get(cardId)).filter((card): card is Crawlv3CatalogCard => !!card),
+  })
+}
+
+function getCatalogCardsById() {
+  return new Map(catalogCards.value.map((card) => [card.id, card]))
+}
+
+function refreshSavedDeckSelectionFromCatalog() {
+  if (
+    !canEditDeckSelection.value ||
+    !myDeckSelection.value ||
+    !localSelectionIds.value.length ||
+    !catalogCards.value.length
+  ) {
+    return
+  }
+
+  const cardsById = getCatalogCardsById()
+  const nextCards = localSelectionIds.value
+    .map((cardId) => cardsById.get(cardId))
+    .filter((card): card is Crawlv3CatalogCard => !!card)
+
+  if (nextCards.length !== localSelectionIds.value.length) return
+  if (JSON.stringify(nextCards) === JSON.stringify(myDeckSelection.value.cards)) return
+
+  enqueueAction({
+    type: 'select_deck',
+    cards: nextCards,
   })
 }
 
@@ -316,8 +344,16 @@ watch(
   (serializedSelection) => {
     const nextIds = serializedSelection ? (JSON.parse(serializedSelection) as string[]) : []
     localSelectionIds.value = nextIds
+    refreshSavedDeckSelectionFromCatalog()
   },
   { immediate: true },
+)
+
+watch(
+  () => JSON.stringify(catalogCards.value),
+  () => {
+    refreshSavedDeckSelectionFromCatalog()
+  },
 )
 
 const catalogHeaderFields: [keyof Crawlv3CatalogConfig['headers'], string][] = [

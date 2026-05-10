@@ -16,9 +16,10 @@ import { useCrawlv3SelectedCard } from '@/composables/crawlv3/useCrawlv3Selected
 import { useCrawlv3StatusDefinitions } from '@/composables/crawlv3/useCrawlv3StatusDefinitions'
 import cardBackImage from '@/assets/images/cards/cardback.png'
 import { formatFaceLabel, formatPositionLabel, formatZoneLabel, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import { loadCatalogCards } from '@/lib/crawlv3/catalog'
 import { getTopPileCard, getZoneCards } from '@/lib/crawlv3/game-state'
-import { shuffleItems, withDefaultCatalogConfig } from '@/lib/crawlv3/ui-utils'
-import type { Crawlv3CardState, Crawlv3Player } from '@/types/crawlv3'
+import { safeTrim, shuffleItems, withDefaultCatalogConfig } from '@/lib/crawlv3/ui-utils'
+import type { Crawlv3CardState, Crawlv3CatalogCard, Crawlv3Player } from '@/types/crawlv3'
 import type { Crawlv3PileZone, OpenCrawlv3PileState } from '@/types/crawlv3-ui'
 
 const { game, myPlayer, opponentPlayer, isPerspectiveFlipped, enqueueAction, resetRoomSession } = useCrawlv3Controller()
@@ -29,58 +30,108 @@ const statusCardId = ref<string | null>(null)
 const openPile = ref<OpenCrawlv3PileState | null>(null)
 const shortcutsOpen = ref(false)
 const selectedMoveMode = ref(false)
+const catalogCards = ref<Crawlv3CatalogCard[]>([])
 const fieldCardWidth = ref('calc(clamp(38rem, min(50vw, calc(100vh - 26rem)), 68rem) * 0.16 * 63 / 88)')
 let hitPointShortcutBuffer = ''
 let hitPointShortcutSign: 1 | -1 = -1
 let hitPointShortcutTimer: ReturnType<typeof setTimeout> | null = null
+let catalogRequestId = 0
 
 const { statusDefinitions } = useCrawlv3StatusDefinitions({
   config: computed(() => game.value?.config),
 })
 
-const tableCards = computed(() => (game.value ? getZoneCards(game.value.cards, 'table') : []))
+const catalogCardsById = computed(() => new Map(catalogCards.value.map((card) => [card.id, card])))
+
+function hydrateCardDetails(card: Crawlv3CardState): Crawlv3CardState {
+  const catalogCard = catalogCardsById.value.get(card.cardId)
+  if (!catalogCard) return card
+
+  return {
+    ...card,
+    title: catalogCard.title || card.title,
+    cost: catalogCard.cost || card.cost,
+    baseAtk: catalogCard.atk || card.baseAtk,
+    baseDef: catalogCard.def || card.baseDef,
+    atk: card.atk || catalogCard.atk,
+    def: card.def || catalogCard.def,
+    category: catalogCard.category || card.category,
+    race: card.race || catalogCard.race,
+    damageType: card.damageType || catalogCard.damageType,
+    img: catalogCard.img || card.img,
+    description: catalogCard.description || card.description,
+    imageUrl: catalogCard.imageUrl || card.imageUrl,
+  }
+}
+
+const displayGame = computed(() => {
+  if (!game.value || !catalogCards.value.length) return game.value
+
+  return {
+    ...game.value,
+    cards: Object.fromEntries(
+      Object.entries(game.value.cards).map(([instanceId, card]) => [instanceId, hydrateCardDetails(card)]),
+    ),
+  }
+})
+
+const tableCards = computed(() => (displayGame.value ? getZoneCards(displayGame.value.cards, 'table') : []))
 const myHandCards = computed(() =>
-  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'hand', myPlayer.value) : [],
+  displayGame.value && myPlayer.value ? getZoneCards(displayGame.value.cards, 'hand', myPlayer.value) : [],
 )
 const opponentHandCards = computed(() =>
-  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'hand', opponentPlayer.value) : [],
+  displayGame.value && opponentPlayer.value ? getZoneCards(displayGame.value.cards, 'hand', opponentPlayer.value) : [],
 )
 const myDeckCards = computed(() =>
-  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'deck', myPlayer.value) : [],
+  displayGame.value && myPlayer.value ? getZoneCards(displayGame.value.cards, 'deck', myPlayer.value) : [],
 )
 const opponentDeckCards = computed(() =>
-  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'deck', opponentPlayer.value) : [],
+  displayGame.value && opponentPlayer.value ? getZoneCards(displayGame.value.cards, 'deck', opponentPlayer.value) : [],
 )
 const myExtraDeckCards = computed(() =>
-  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'extraDeck', myPlayer.value) : [],
+  displayGame.value && myPlayer.value ? getZoneCards(displayGame.value.cards, 'extraDeck', myPlayer.value) : [],
 )
 const opponentExtraDeckCards = computed(() =>
-  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'extraDeck', opponentPlayer.value) : [],
+  displayGame.value && opponentPlayer.value
+    ? getZoneCards(displayGame.value.cards, 'extraDeck', opponentPlayer.value)
+    : [],
 )
 const myDiscardCards = computed(() =>
-  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'discard', myPlayer.value) : [],
+  displayGame.value && myPlayer.value ? getZoneCards(displayGame.value.cards, 'discard', myPlayer.value) : [],
 )
 const opponentDiscardCards = computed(() =>
-  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'discard', opponentPlayer.value) : [],
+  displayGame.value && opponentPlayer.value
+    ? getZoneCards(displayGame.value.cards, 'discard', opponentPlayer.value)
+    : [],
 )
 const myExhaustedCards = computed(() =>
-  game.value && myPlayer.value ? getZoneCards(game.value.cards, 'exhausted', myPlayer.value) : [],
+  displayGame.value && myPlayer.value ? getZoneCards(displayGame.value.cards, 'exhausted', myPlayer.value) : [],
 )
 const opponentExhaustedCards = computed(() =>
-  game.value && opponentPlayer.value ? getZoneCards(game.value.cards, 'exhausted', opponentPlayer.value) : [],
+  displayGame.value && opponentPlayer.value
+    ? getZoneCards(displayGame.value.cards, 'exhausted', opponentPlayer.value)
+    : [],
 )
 
 const myTopDiscardCard = computed(() =>
-  game.value && myPlayer.value ? (getTopPileCard(game.value.cards, 'discard', myPlayer.value) ?? null) : null,
+  displayGame.value && myPlayer.value
+    ? (getTopPileCard(displayGame.value.cards, 'discard', myPlayer.value) ?? null)
+    : null,
 )
 const myTopDeckCard = computed(() =>
-  game.value && myPlayer.value ? (getTopPileCard(game.value.cards, 'deck', myPlayer.value) ?? null) : null,
+  displayGame.value && myPlayer.value
+    ? (getTopPileCard(displayGame.value.cards, 'deck', myPlayer.value) ?? null)
+    : null,
 )
 const myTopExtraDeckCard = computed(() =>
-  game.value && myPlayer.value ? (getTopPileCard(game.value.cards, 'extraDeck', myPlayer.value) ?? null) : null,
+  displayGame.value && myPlayer.value
+    ? (getTopPileCard(displayGame.value.cards, 'extraDeck', myPlayer.value) ?? null)
+    : null,
 )
 const myTopExhaustedCard = computed(() =>
-  game.value && myPlayer.value ? (getTopPileCard(game.value.cards, 'exhausted', myPlayer.value) ?? null) : null,
+  displayGame.value && myPlayer.value
+    ? (getTopPileCard(displayGame.value.cards, 'exhausted', myPlayer.value) ?? null)
+    : null,
 )
 
 const {
@@ -99,7 +150,7 @@ const {
   updateTooltip,
   clearTooltip,
 } = useCrawlv3Board({
-  game,
+  game: displayGame,
   myPlayer,
   isPerspectiveFlipped,
   tableCards,
@@ -139,7 +190,7 @@ const {
   getCardStatusEntries,
   clearSelectedCardState,
 } = useCrawlv3SelectedCard({
-  game,
+  game: displayGame,
   myPlayer,
   statusDefinitions,
   selectedCardId,
@@ -148,18 +199,18 @@ const {
 })
 
 const tooltipCard = computed(() => {
-  if (!game.value || !hoveredTooltip.value) return null
-  return game.value.cards[hoveredTooltip.value.cardId] ?? null
+  if (!displayGame.value || !hoveredTooltip.value) return null
+  return displayGame.value.cards[hoveredTooltip.value.cardId] ?? null
 })
 
 const previewCard = computed(() => {
-  if (!game.value || !previewCardId.value) return null
-  return game.value.cards[previewCardId.value] ?? null
+  if (!displayGame.value || !previewCardId.value) return null
+  return displayGame.value.cards[previewCardId.value] ?? null
 })
 
 const dragPreviewCard = computed(() => {
-  if (!game.value || !dragState.value) return null
-  const card = game.value.cards[dragState.value.instanceId]
+  if (!displayGame.value || !dragState.value) return null
+  const card = displayGame.value.cards[dragState.value.instanceId]
   if (!card) return null
 
   if (dragState.value.previewFaceUp === undefined && dragState.value.previewRotated === undefined) return card
@@ -192,8 +243,8 @@ const fieldImageUrl = computed(() =>
 )
 
 const activePileCards = computed(() => {
-  if (!openPile.value || !game.value) return []
-  const cards = getZoneCards(game.value.cards, openPile.value.zone, openPile.value.owner)
+  if (!openPile.value || !displayGame.value) return []
+  const cards = getZoneCards(displayGame.value.cards, openPile.value.zone, openPile.value.owner)
   if (!openPile.value.visibleCardIds) return cards
 
   const cardMap = new Map(cards.map((card) => [card.instanceId, card]))
@@ -209,6 +260,30 @@ const activePileTitle = computed(() => {
   const playerName = game.value.players[openPile.value.owner]?.username ?? 'Player'
   return `${playerName} ${formatZoneLabel(openPile.value.zone)}`
 })
+
+watch(
+  () => JSON.stringify(game.value?.config ?? {}),
+  async () => {
+    const config = game.value?.config
+    if (!config || !safeTrim(config.csvUrl) || !safeTrim(config.headers.id) || !safeTrim(config.headers.title)) {
+      catalogCards.value = []
+      return
+    }
+
+    const requestId = ++catalogRequestId
+    try {
+      const cards = await loadCatalogCards(config)
+      if (requestId === catalogRequestId) {
+        catalogCards.value = cards
+      }
+    } catch {
+      if (requestId === catalogRequestId) {
+        catalogCards.value = []
+      }
+    }
+  },
+  { immediate: true },
+)
 
 function clearTransientUi() {
   clearBoardTransientUi()

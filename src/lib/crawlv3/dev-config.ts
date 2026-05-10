@@ -7,7 +7,7 @@ export const CRAWLV3_DEV_CONFIG: { defaultRoomConfig: Crawlv3CatalogConfig } = {
     headers: {
       id: 'id',
       title: 'name',
-      cost: 'cost',
+      cost: 'cost, material',
       atk: 'atk',
       def: 'def',
       category: 'category',

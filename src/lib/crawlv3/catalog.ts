@@ -133,7 +133,18 @@ export function resolveCatalogCardImage(cardId: string, img: string, config: Cra
 
 function getMappedValue(row: Record<string, string>, headerName?: string): string {
   if (!headerName?.trim()) return ''
-  return row[headerName.trim()] ?? ''
+
+  const headerNames = headerName
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+
+  for (const name of headerNames) {
+    const value = row[name] ?? ''
+    if (value.trim()) return value
+  }
+
+  return ''
 }
 
 export function normalizeCatalogCards(

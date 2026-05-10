@@ -17,7 +17,7 @@ const emit = defineEmits<{
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-[1000] bg-black/80 p-4 backdrop-blur-sm" @click="emit('close')">
-      <div class="mx-auto grid h-full max-w-6xl items-center gap-6 lg:grid-cols-[minmax(0,30rem)_minmax(0,28rem)]">
+      <div class="mx-auto grid h-full max-w-7xl items-center gap-6 lg:grid-cols-[minmax(0,30rem)_minmax(0,34rem)]">
         <div class="flex justify-center">
           <img
             :src="showFace ? card.imageUrl || cardBackImage : cardBackImage"
@@ -49,18 +49,18 @@ const emit = defineEmits<{
               </div>
             </div>
 
-            <div class="grid gap-2 sm:grid-cols-3">
-              <div v-if="hasDisplayValue(card.cost)" class="rounded-xl bg-white/5 p-2.5">
+            <div class="flex flex-wrap gap-2">
+              <div v-if="hasDisplayValue(card.cost)" class="min-w-24 flex-auto rounded-xl bg-white/5 p-2.5">
                 <p class="text-xs text-white/50 uppercase">Cost</p>
-                <p class="mt-1 text-base font-semibold">{{ card.cost }}</p>
+                <p class="mt-1 text-base font-semibold wrap-break-word">{{ card.cost }}</p>
               </div>
-              <div v-if="shouldShowCardStat(card, 'atk')" class="rounded-xl bg-white/5 p-2.5">
+              <div v-if="shouldShowCardStat(card, 'atk')" class="min-w-24 flex-auto rounded-xl bg-white/5 p-2.5">
                 <p class="text-xs text-white/50 uppercase">ATK</p>
-                <p class="mt-1 text-base font-semibold">{{ formatDisplayValue(card.atk) }}</p>
+                <p class="mt-1 text-base font-semibold wrap-break-word">{{ formatDisplayValue(card.atk) }}</p>
               </div>
-              <div v-if="shouldShowCardStat(card, 'def')" class="rounded-xl bg-white/5 p-2.5">
+              <div v-if="shouldShowCardStat(card, 'def')" class="min-w-24 flex-auto rounded-xl bg-white/5 p-2.5">
                 <p class="text-xs text-white/50 uppercase">DEF</p>
-                <p class="mt-1 text-base font-semibold">{{ formatDisplayValue(card.def) }}</p>
+                <p class="mt-1 text-base font-semibold wrap-break-word">{{ formatDisplayValue(card.def) }}</p>
               </div>
             </div>
           </div>
