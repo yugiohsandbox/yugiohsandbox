@@ -83,7 +83,7 @@
   max-height: 100dvh;
   aspect-ratio: 3 / 2;
   container-type: size;
-  background-image: url('https://yugioh-simulator.s3.eu-west-2.amazonaws.com/card_art/playspace.png');
+  background-color: white;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
