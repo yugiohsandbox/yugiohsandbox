@@ -8,6 +8,7 @@ import CrawlV3CardZone from '@/components/crawlv3/CrawlV3CardZone.vue'
 import CrawlV3DeckModal from '@/components/crawlv3/CrawlV3DeckModal.vue'
 import CrawlV3DragGhost from '@/components/crawlv3/CrawlV3DragGhost.vue'
 import CrawlV3Select from '@/components/crawlv3/CrawlV3Select.vue'
+import CrawlV3RulesModal from '@/components/crawlv3/CrawlV3RulesModal.vue'
 import CrawlV3ShortcutsModal from '@/components/crawlv3/CrawlV3ShortcutsModal.vue'
 import CrawlV3StatusModal from '@/components/crawlv3/CrawlV3StatusModal.vue'
 import { useCrawlv3Board } from '@/composables/crawlv3/useCrawlv3Board'
@@ -29,6 +30,7 @@ const previewCardId = ref<string | null>(null)
 const statusCardId = ref<string | null>(null)
 const openPile = ref<OpenCrawlv3PileState | null>(null)
 const shortcutsOpen = ref(false)
+const rulesOpen = ref(false)
 const selectedMoveMode = ref(false)
 const catalogCards = ref<Crawlv3CatalogCard[]>([])
 const fieldCardWidth = ref('calc(clamp(38rem, min(50vw, calc(100vh - 26rem)), 68rem) * 0.16 * 63 / 88)')
@@ -294,6 +296,7 @@ function leaveRoom() {
   clearSelectedCardState()
   openPile.value = null
   shortcutsOpen.value = false
+  rulesOpen.value = false
   resetRoomSession()
   clearTransientUi()
 }
@@ -307,6 +310,7 @@ function completeGame() {
   previewCardId.value = null
   openPile.value = null
   shortcutsOpen.value = false
+  rulesOpen.value = false
   clearTransientUi()
 }
 
@@ -411,12 +415,13 @@ function handleKeyboardShortcut(event: KeyboardEvent) {
   if (event.repeat || !isKeyboardShortcutTarget(event.target)) return
 
   if (event.key === 'Escape') {
-    if (statusCardId.value || previewCardId.value || openPile.value || shortcutsOpen.value) {
+    if (statusCardId.value || previewCardId.value || openPile.value || shortcutsOpen.value || rulesOpen.value) {
       event.preventDefault()
       statusCardId.value = null
       previewCardId.value = null
       openPile.value = null
       shortcutsOpen.value = false
+      rulesOpen.value = false
     }
     return
   }
@@ -519,6 +524,13 @@ onBeforeUnmount(() => {
             <p class="mt-1 text-3xl font-semibold tracking-[0.2em] text-amber-200">{{ game.code }}</p>
           </div>
           <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              class="cursor-pointer rounded-full border border-violet-300/35 bg-violet-300/12 px-4 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300/50 hover:bg-violet-300/18"
+              @click="rulesOpen = true"
+            >
+              Rules
+            </button>
             <button
               type="button"
               class="cursor-pointer rounded-full border border-sky-300/35 bg-sky-300/12 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/18"
@@ -1264,5 +1276,6 @@ onBeforeUnmount(() => {
     />
 
     <CrawlV3ShortcutsModal v-if="shortcutsOpen" @close="shortcutsOpen = false" />
+    <CrawlV3RulesModal v-if="rulesOpen" @close="rulesOpen = false" />
   </div>
 </template>
