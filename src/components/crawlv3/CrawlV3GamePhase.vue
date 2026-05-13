@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
               :data-crawlv3-owner="opponentPlayer"
             >
               <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Discard</p>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Spent</p>
               </div>
 
               <div class="mt-4 flex items-center gap-4">
@@ -601,14 +601,14 @@ onBeforeUnmount(() => {
                   <img
                     v-if="opponentDiscardCards.length"
                     :src="cardBackImage"
-                    alt="Opponent discard pile"
+                    alt="Opponent spent pile"
                     class="h-full w-full object-cover"
                   />
                   <div
                     v-else
                     class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
                   >
-                    Discard
+                    Spent
                   </div>
                 </div>
                 <div>
@@ -653,7 +653,7 @@ onBeforeUnmount(() => {
               :data-crawlv3-owner="opponentPlayer"
             >
               <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Deck</p>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Draw</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
                 <div class="relative h-28 w-20">
@@ -665,7 +665,7 @@ onBeforeUnmount(() => {
                     v-for="depth in Math.min(opponentDeckCards.length, 3)"
                     :key="depth"
                     :src="cardBackImage"
-                    alt="Deck pile"
+                    alt="Draw pile"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -883,7 +883,7 @@ onBeforeUnmount(() => {
               @contextmenu.prevent="openPileViewer(myPlayer, 'discard')"
             >
               <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Discard</p>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Spent</p>
               </div>
 
               <div class="mt-4 flex items-center gap-4">
@@ -894,14 +894,14 @@ onBeforeUnmount(() => {
                   <img
                     v-if="pilePreviewImage(myTopDiscardCard)"
                     :src="pilePreviewImage(myTopDiscardCard)"
-                    alt="Your discard pile"
+                    alt="Your spent pile"
                     class="h-full w-full object-cover"
                   />
                   <div
                     v-else
                     class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
                   >
-                    Discard
+                    Spent
                   </div>
                 </div>
                 <div>
@@ -916,7 +916,7 @@ onBeforeUnmount(() => {
                   :disabled="!myDiscardCards.length"
                   @click="shuffleDiscardIntoDeck"
                 >
-                  Shuffle Into Deck
+                  Shuffle Into Draw
                 </button>
               </div>
             </div>
@@ -928,7 +928,7 @@ onBeforeUnmount(() => {
               @contextmenu.prevent="openPileViewer(myPlayer, 'deck')"
             >
               <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Deck</p>
+                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Draw</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
                 <div class="relative h-28 w-20 cursor-pointer" @pointerdown="startTopPileDrag('deck', $event)">
@@ -940,7 +940,7 @@ onBeforeUnmount(() => {
                     v-for="depth in Math.min(myDeckCards.length, 3)"
                     :key="depth"
                     :src="cardBackImage"
-                    alt="Deck pile"
+                    alt="Draw pile"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -1169,7 +1169,7 @@ onBeforeUnmount(() => {
               :class="[buttonClasses.discard, 'w-full']"
               @click="moveSelectedCardTo('discard')"
             >
-              Discard
+              Spent
             </button>
             <button
               v-if="selectedOwnCard.zone !== 'extraDeck'"
@@ -1185,7 +1185,7 @@ onBeforeUnmount(() => {
               :class="[buttonClasses.deck, 'w-full']"
               @click="moveSelectedCardTo('deck')"
             >
-              Deck
+              Draw
             </button>
             <button type="button" :class="[buttonClasses.neutral, 'w-full']" @click="selectedMoveMode = false">
               Cancel

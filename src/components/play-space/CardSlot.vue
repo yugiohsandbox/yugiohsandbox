@@ -28,7 +28,7 @@ const actionTitleMap: Record<string, string> = {
   'shuffle-in': 'Shuffle in',
   'place-top': 'Place on top',
   'place-bottom': 'Place on bottom',
-  shuffle: 'Shuffle deck',
+  shuffle: 'Shuffle draw',
   set: 'Set',
   defence: 'Summon defence',
   'face-down': 'Banish face down',

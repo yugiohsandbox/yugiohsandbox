@@ -454,34 +454,34 @@ const handleDeckAction = (action: string) => {
     case 'shuffle-in': {
       if (!selectedCard.value) return
       const randomIndex = Math.floor(Math.random() * (getCards('deck').length + 1))
-      const logText = `shuffled ${cardName(selectedCard.value)} into their deck`
+      const logText = `shuffled ${cardName(selectedCard.value)} into their draw`
       const edits = moveCard('deck', randomIndex, faceDownOptions)
       if (edits.length) sendEdit(edits, logText)
       break
     }
     case 'place-top': {
       if (!selectedCard.value) return
-      const logText = `placed ${cardName(selectedCard.value)} on top of their deck`
+      const logText = `placed ${cardName(selectedCard.value)} on top of their draw`
       const edits = moveCard('deck', 0, faceDownOptions)
       if (edits.length) sendEdit(edits, logText)
       break
     }
     case 'place-bottom': {
       if (!selectedCard.value) return
-      const logText = `placed ${cardName(selectedCard.value)} on the bottom of their deck`
+      const logText = `placed ${cardName(selectedCard.value)} on the bottom of their draw`
       const edits = moveCard('deck', getCards('deck').length, faceDownOptions)
       if (edits.length) sendEdit(edits, logText)
       break
     }
     case 'shuffle': {
       const shuffled = [...getCards('deck')].sort(() => Math.random() - 0.5)
-      sendEdit([{ type: 'set_zone', player: props.player, location: 'deck', cards: shuffled }], `shuffled their deck`)
+      sendEdit([{ type: 'set_zone', player: props.player, location: 'deck', cards: shuffled }], `shuffled their draw`)
       break
     }
     case 'search': {
       revealDeck.value = true
       inspectCards('deck')
-      sendEdit([], `searched their deck`)
+      sendEdit([], `searched their draw`)
       break
     }
   }
@@ -909,10 +909,10 @@ const attachedSelectedIndex = (parentUid?: string) =>
         @pointerdown="isInteractive && card && startCardDrag(card as YugiohCard, 'field', index, $event)"
       />
 
-      <!-- Deck -->
+      <!-- Draw -->
       <card-slot
         class="bg-amber-900"
-        name="Deck Zone"
+        name="Draw Zone"
         :cards="getCards('deck')"
         :hint="getCards('deck').length"
         :actions="isInteractive && deckActions"

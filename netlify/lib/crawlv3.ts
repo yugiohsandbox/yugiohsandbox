@@ -657,7 +657,7 @@ function handleActiveAction(game: Crawlv3Game, action: Crawlv3Action, playerKey:
       const requestedIds = [...action.orderedCardIds].sort()
 
       if (!idsMatchCurrentCards(currentIds, requestedIds)) {
-        return { success: false, error: 'Deck shuffle payload did not match the current deck' }
+        return { success: false, error: 'Draw shuffle payload did not match the current draw pile' }
       }
 
       applyDeckOrder(game, playerKey, action.orderedCardIds)
@@ -673,7 +673,7 @@ function handleActiveAction(game: Crawlv3Game, action: Crawlv3Action, playerKey:
       const requestedIds = [...action.orderedCardIds].sort()
 
       if (!idsMatchCurrentCards(currentIds, requestedIds)) {
-        return { success: false, error: 'Discard recycle payload did not match the current deck and discard piles' }
+        return { success: false, error: 'Spent recycle payload did not match the current draw and spent piles' }
       }
 
       applyDiscardRecycleOrder(game, playerKey, action.orderedCardIds)

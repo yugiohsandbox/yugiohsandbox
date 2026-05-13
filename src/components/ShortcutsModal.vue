@@ -15,12 +15,12 @@ const cardSelectedShortcuts = [
 
 const noCardSelectedShortcuts = [
   { key: 'G', description: 'Inspect graveyard' },
-  { key: 'D', description: 'Draw a card from deck' },
-  { key: 'S', description: 'Search deck' },
+  { key: 'D', description: 'Draw a card from draw' },
+  { key: 'S', description: 'Search draw' },
   { key: 'L', description: 'Focus player life points' },
   { key: 'O', description: 'Focus opponent life points' },
   { key: 'Space', description: 'Next turn phase' },
-  { key: 'Enter', description: 'Auto-draw (discard hand, then draw)' },
+  { key: 'Enter', description: 'Auto-draw (spend hand, then draw)' },
 ]
 
 type MouseShortcut = {

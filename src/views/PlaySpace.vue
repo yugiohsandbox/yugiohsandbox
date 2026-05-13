@@ -374,7 +374,7 @@ registerShortcut('Enter', () => {
     ])
   }
 
-  // Simulate deck/graveyard state after hand is cleared, then build draw steps
+  // Simulate draw/graveyard state after hand is cleared, then build draw steps
   let graveyard = [
     ...playerCards.hand.filter(Boolean).map((c) => ({ ...c, faceDown: false })),
     ...playerCards.graveyard,
@@ -798,7 +798,7 @@ onUnmounted(() => {
         @click="viewDeck = !viewDeck"
         class="mt-4 ml-4 cursor-pointer rounded-md border-1 border-gray-300 p-2 active:bg-gray-600"
       >
-        View Deck
+        View Draw
       </button>
       <button
         @click="viewShortcuts = true"

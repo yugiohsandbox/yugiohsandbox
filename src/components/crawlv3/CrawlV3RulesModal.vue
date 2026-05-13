@@ -47,7 +47,7 @@ const ruleKeywords = [
   'Setup Phase',
   'Extra Deck Units',
   'Extra Deck',
-  'Discard Pile',
+  'Spent Pile',
   'Action Points',
   'Hit Points',
   'Rune Counters',
@@ -108,7 +108,7 @@ const ruleKeywords = [
   'Unit',
   'Zones',
   'Zone',
-  'Deck',
+  'Draw',
   'Play',
   'Set',
   'Race',
@@ -150,7 +150,7 @@ const ruleSections: RuleSection[] = [
       {
         title: 'Game Setup',
         items: [
-          'Cards start in your Deck or Extra Deck, depending on their card type.',
+          'Cards start in your Draw or Extra Deck, depending on their card type.',
           'Each player starts the game with 40 Hit Points.',
           "Your goal is to reduce your opponent's Hit Points to 0.",
         ],
@@ -160,8 +160,8 @@ const ruleSections: RuleSection[] = [
         items: [
           'You start each turn with 2 Action Points.',
           'At the start of your turn, draw 4 cards.',
-          'If your Deck is empty when you need to draw, shuffle your Discard Pile into your Deck. Extra Deck Units return to the Extra Deck.',
-          'At the end of your turn, discard the cards remaining in your hand.',
+          'If your Draw is empty when you need to draw, shuffle your Spent Pile into your Draw. Extra Deck Units return to the Extra Deck.',
+          'At the end of your turn, move the cards remaining in your hand to Spent.',
         ],
       },
       {
@@ -180,7 +180,7 @@ const ruleSections: RuleSection[] = [
     defaultOpen: false,
     lists: [
       {
-        title: 'Costs & Decks',
+        title: 'Costs & Draw',
         items: [
           'Playing, Summoning, or Setting a card requires paying its cost. Most cards use Action Points as their cost.',
           'Ritual Units require Tributing a Unit with the required number of Rune Counters.',
@@ -343,7 +343,7 @@ const ruleSections: RuleSection[] = [
           {
             label: 'Retain',
             description:
-              'This card is not discarded at the end of your turn. At the start of your turn, reduce Retain by 1.',
+              'This card is not moved to Spent at the end of your turn. At the start of your turn, reduce Retain by 1.',
           },
           {
             label: 'Eternal',

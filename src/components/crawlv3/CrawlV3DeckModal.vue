@@ -155,7 +155,7 @@ const buttonClasses = {
                   :class="buttonClasses.deck"
                   @click="emit('move-to-deck', card.instanceId)"
                 >
-                  Move to Deck
+                  Move to Draw
                 </button>
                 <button
                   v-if="allowMoveToExtraDeck"
@@ -171,7 +171,7 @@ const buttonClasses = {
                   :class="buttonClasses.discard"
                   @click="emit('move-to-discard', card.instanceId)"
                 >
-                  Move to Discard
+                  Move to Spent
                 </button>
                 <button
                   v-if="allowMoveToExhausted"

@@ -9,7 +9,7 @@ const zoneNameMap: Record<keyof BoardSide, string> = {
   zones: 'an extra zone',
   hand: 'their hand',
   banished: 'the banished zone',
-  deck: 'the deck',
+  deck: 'the draw',
   extra: 'the extra deck',
   tokens: 'the token deck',
   graveyard: 'the graveyard',
@@ -196,7 +196,7 @@ export function useCardMovement({
 
   function drawCard(source: keyof BoardSide) {
     if (!getCards(source).length) {
-      // In crawl mode, recycle graveyard into deck when deck is empty
+      // In crawl mode, recycle graveyard into draw when draw is empty
       if (isCrawl.value && source === 'deck') {
         const shuffled = [...getCards('graveyard')]
           .sort(() => Math.random() - 0.5)
@@ -206,7 +206,7 @@ export function useCardMovement({
             { type: 'set_zone', player: player.value, location: 'deck', cards: shuffled },
             { type: 'set_zone', player: player.value, location: 'graveyard', cards: [] },
           ],
-          `moved their graveyard into deck`,
+          `moved their graveyard into draw`,
         )
       }
       return

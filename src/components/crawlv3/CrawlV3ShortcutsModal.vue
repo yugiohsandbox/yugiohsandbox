@@ -10,7 +10,7 @@ const shortcutGroups = [
       { keys: 'F', label: 'Flip selected card' },
       { keys: 'S', label: 'Switch selected card stance' },
       { keys: 'M', label: 'Open modifiers for selected card' },
-      { keys: 'D', label: 'Move selected card to discard' },
+      { keys: 'D', label: 'Move selected card to spent' },
       { keys: 'E', label: 'Move selected card to exhausted' },
       { keys: 'H', label: 'Move selected card to hand' },
       { keys: 'T', label: 'Move selected card to table' },
@@ -18,7 +18,7 @@ const shortcutGroups = [
     ],
   },
   {
-    title: 'Deck & Resources',
+    title: 'Draw & Resources',
     shortcuts: [
       { keys: 'Space', label: 'Draw a card' },
       { keys: 'A', label: 'Decrease action points by 1' },
