@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import CrawlV3Card from '@/components/crawlv3/CrawlV3Card.vue'
 import CrawlV3CardPreviewModal from '@/components/crawlv3/CrawlV3CardPreviewModal.vue'
 import CrawlV3CardTooltip from '@/components/crawlv3/CrawlV3CardTooltip.vue'
 import CrawlV3CardZone from '@/components/crawlv3/CrawlV3CardZone.vue'
 import CrawlV3DeckModal from '@/components/crawlv3/CrawlV3DeckModal.vue'
 import CrawlV3DragGhost from '@/components/crawlv3/CrawlV3DragGhost.vue'
-import CrawlV3Select from '@/components/crawlv3/CrawlV3Select.vue'
+import CrawlV3PilePanel from '@/components/crawlv3/CrawlV3PilePanel.vue'
+import CrawlV3PlayerStatsPanel from '@/components/crawlv3/CrawlV3PlayerStatsPanel.vue'
 import CrawlV3RulesModal from '@/components/crawlv3/CrawlV3RulesModal.vue'
+import CrawlV3SelectedCardPanel from '@/components/crawlv3/CrawlV3SelectedCardPanel.vue'
 import CrawlV3ShortcutsModal from '@/components/crawlv3/CrawlV3ShortcutsModal.vue'
 import CrawlV3StatusModal from '@/components/crawlv3/CrawlV3StatusModal.vue'
 import { useCrawlv3Board } from '@/composables/crawlv3/useCrawlv3Board'
@@ -16,7 +17,7 @@ import { useCrawlv3Controller } from '@/composables/crawlv3/useCrawlv3Controller
 import { useCrawlv3SelectedCard } from '@/composables/crawlv3/useCrawlv3SelectedCard'
 import { useCrawlv3StatusDefinitions } from '@/composables/crawlv3/useCrawlv3StatusDefinitions'
 import cardBackImage from '@/assets/images/cards/cardback.png'
-import { formatFaceLabel, formatPositionLabel, formatZoneLabel, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import { formatZoneLabel } from '@/lib/crawlv3/card-display'
 import { loadCatalogCards } from '@/lib/crawlv3/catalog'
 import { getTopPileCard, getZoneCards } from '@/lib/crawlv3/game-state'
 import { safeTrim, shuffleItems, withDefaultCatalogConfig } from '@/lib/crawlv3/ui-utils'
@@ -291,8 +292,7 @@ const otherSelectedCardIds = computed(() => {
         !!selection.instanceId &&
         (actualPlayer.value
           ? selection.visibleTo.includes(actualPlayer.value)
-          : spectatorPerspective.value === 'both' ||
-            selection.visibleTo.includes(spectatorPerspective.value)),
+          : spectatorPerspective.value === 'both' || selection.visibleTo.includes(spectatorPerspective.value)),
     )
     .map(([, selection]) => selection.instanceId as string)
 })
@@ -422,32 +422,6 @@ function startTopPileDrag(zone: Crawlv3PileZone, event: PointerEvent) {
 function updateFieldCardWidth(size: { height: number }) {
   fieldCardWidth.value = `${size.height * 0.16 * (63 / 88)}px`
 }
-
-const buttonClasses = {
-  neutral:
-    'cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5',
-  hand: 'cursor-pointer rounded-full border border-sky-300/35 bg-sky-300/15 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/55 hover:bg-sky-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  table:
-    'cursor-pointer rounded-full border border-amber-300/35 bg-amber-300/15 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/55 hover:bg-amber-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  deck: 'cursor-pointer rounded-full border border-indigo-300/35 bg-indigo-300/15 px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300/55 hover:bg-indigo-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  extraDeck:
-    'cursor-pointer rounded-full border border-violet-300/35 bg-violet-300/15 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300/55 hover:bg-violet-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  exhausted:
-    'cursor-pointer rounded-full border border-fuchsia-300/35 bg-fuchsia-300/15 px-3 py-2 text-sm font-semibold text-fuchsia-100 transition hover:border-fuchsia-300/55 hover:bg-fuchsia-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  icon: 'cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-xl leading-none font-normal text-white/85 transition hover:border-white/30 hover:bg-white/5',
-  discard:
-    'cursor-pointer rounded-full border border-rose-300/35 bg-rose-300/15 px-3 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300/55 hover:bg-rose-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  flip: 'cursor-pointer rounded-full border border-emerald-300/35 bg-emerald-300/15 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/55 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-  position:
-    'cursor-pointer rounded-full border border-orange-300/35 bg-orange-300/15 px-3 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-300/55 hover:bg-orange-300/25 disabled:cursor-not-allowed disabled:opacity-50',
-} as const
-
-const statInputClasses = {
-  editable:
-    'min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50',
-  readonly:
-    'pointer-events-none min-w-[7rem] flex-1 cursor-default select-none rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 caret-transparent outline-none focus:border-white/10 focus:ring-0',
-} as const
 
 function isOwnCardInteractive(card: Crawlv3CardState) {
   return card.owner === actualPlayer.value
@@ -648,171 +622,51 @@ onBeforeUnmount(() => {
 
         <section class="space-y-4">
           <div class="grid gap-4 xl:grid-cols-5">
-            <div class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm">
-              <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent</p>
-              <h2 class="mt-2 text-2xl font-semibold">{{ game.players[opponentPlayer]?.username }}</h2>
-
-              <div class="mt-4 space-y-3">
-                <div class="space-y-2">
-                  <span class="mb-2 block text-sm text-white/60">Hit Points</span>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model="statDrafts[opponentPlayer].lifePoints"
-                      type="number"
-                      readonly
-                      tabindex="-1"
-                      :class="statInputClasses.readonly"
-                    />
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <span class="block text-sm text-white/60">Action Points</span>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model="statDrafts[opponentPlayer].actionPoints"
-                      type="number"
-                      readonly
-                      tabindex="-1"
-                      :class="statInputClasses.readonly"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="discard"
-              :data-crawlv3-owner="opponentPlayer"
-              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'discard')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Spent</p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg"
-                  @dragstart.prevent
-                >
-                  <img
-                    v-if="opponentDiscardCards.length"
-                    :src="cardBackImage"
-                    alt="Opponent spent pile"
-                    draggable="false"
-                    class="h-full w-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
-                  >
-                    Spent
-                  </div>
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ opponentDiscardCards.length }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="exhausted"
-              :data-crawlv3-owner="opponentPlayer"
-              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'exhausted')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Exhausted</p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg"
-                  @dragstart.prevent
-                >
-                  <img
-                    v-if="opponentExhaustedCards.length"
-                    :src="cardBackImage"
-                    alt="Opponent exhausted pile"
-                    draggable="false"
-                    class="h-full w-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
-                  >
-                    Exhausted
-                  </div>
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ opponentExhaustedCards.length }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="deck"
-              :data-crawlv3-owner="opponentPlayer"
-              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'deck')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Draw</p>
-              </div>
-              <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20" @dragstart.prevent>
-                  <div
-                    v-if="!opponentDeckCards.length"
-                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
-                  />
-                  <img
-                    v-for="depth in Math.min(opponentDeckCards.length, 3)"
-                    :key="depth"
-                    :src="cardBackImage"
-                    alt="Draw pile"
-                    draggable="false"
-                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
-                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
-                  />
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ opponentDeckCards.length }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="extraDeck"
-              :data-crawlv3-owner="opponentPlayer"
-              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'extraDeck')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Extra Deck</p>
-              </div>
-              <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20" @dragstart.prevent>
-                  <div
-                    v-if="!opponentExtraDeckCards.length"
-                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
-                  />
-                  <img
-                    v-for="depth in Math.min(opponentExtraDeckCards.length, 3)"
-                    :key="depth"
-                    :src="cardBackImage"
-                    alt="Extra deck pile"
-                    draggable="false"
-                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
-                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
-                  />
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ opponentExtraDeckCards.length }}</p>
-                </div>
-              </div>
-            </div>
+            <CrawlV3PlayerStatsPanel
+              v-model:life-points="statDrafts[opponentPlayer].lifePoints"
+              v-model:action-points="statDrafts[opponentPlayer].actionPoints"
+              eyebrow="Opponent"
+              :player-name="game.players[opponentPlayer]?.username"
+            />
+            <CrawlV3PilePanel
+              title="Opponent Spent"
+              zone="discard"
+              :owner="opponentPlayer"
+              :count="opponentDiscardCards.length"
+              :card-back-image="cardBackImage"
+              :top-image="opponentDiscardCards.length ? cardBackImage : ''"
+              :can-inspect="revealAllCards"
+              @open="openPileViewer(opponentPlayer, $event)"
+            />
+            <CrawlV3PilePanel
+              title="Opponent Exhausted"
+              zone="exhausted"
+              :owner="opponentPlayer"
+              :count="opponentExhaustedCards.length"
+              :card-back-image="cardBackImage"
+              :top-image="opponentExhaustedCards.length ? cardBackImage : ''"
+              :can-inspect="revealAllCards"
+              @open="openPileViewer(opponentPlayer, $event)"
+            />
+            <CrawlV3PilePanel
+              title="Opponent Draw"
+              zone="deck"
+              :owner="opponentPlayer"
+              :count="opponentDeckCards.length"
+              :card-back-image="cardBackImage"
+              :can-inspect="revealAllCards"
+              @open="openPileViewer(opponentPlayer, $event)"
+            />
+            <CrawlV3PilePanel
+              title="Opponent Extra Deck"
+              zone="extraDeck"
+              :owner="opponentPlayer"
+              :count="opponentExtraDeckCards.length"
+              :card-back-image="cardBackImage"
+              :can-inspect="revealAllCards"
+              @open="openPileViewer(opponentPlayer, $event)"
+            />
           </div>
-
           <div class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-3 shadow-2xl backdrop-blur-sm">
             <div class="mb-3 flex items-center justify-between gap-3">
               <div>
@@ -920,586 +774,105 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="grid gap-4 xl:grid-cols-6">
-            <div
-              class="order-1 rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm xl:col-span-2"
-            >
-              <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">You</p>
-              <h2 class="mt-2 text-2xl font-semibold">{{ game.players[myPlayer]?.username }}</h2>
-
-              <div class="mt-4 space-y-3">
-                <div class="space-y-2">
-                  <span class="mb-2 block text-sm text-white/60">Hit Points</span>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model="statDrafts[myPlayer].lifePoints"
-                      type="number"
-                      :readonly="!isPlayerInteractive"
-                      :tabindex="isPlayerInteractive ? undefined : -1"
-                      :class="isPlayerInteractive ? statInputClasses.editable : statInputClasses.readonly"
-                      @keyup.enter="isPlayerInteractive && savePlayerStats(myPlayer)"
-                      @blur="isPlayerInteractive && savePlayerStats(myPlayer)"
-                    />
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      :class="buttonClasses.neutral"
-                      @click="adjustLifePoints(myPlayer, -5)"
-                    >
-                      -5
-                    </button>
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      :class="buttonClasses.neutral"
-                      @click="adjustLifePoints(myPlayer, -1)"
-                    >
-                      -1
-                    </button>
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      :class="buttonClasses.neutral"
-                      @click="adjustLifePoints(myPlayer, 1)"
-                    >
-                      +1
-                    </button>
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      :class="buttonClasses.neutral"
-                      @click="adjustLifePoints(myPlayer, 5)"
-                    >
-                      +5
-                    </button>
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <span class="block text-sm text-white/60">Action Points</span>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model="statDrafts[myPlayer].actionPoints"
-                      type="number"
-                      :readonly="!isPlayerInteractive"
-                      :tabindex="isPlayerInteractive ? undefined : -1"
-                      :class="isPlayerInteractive ? statInputClasses.editable : statInputClasses.readonly"
-                      @keyup.enter="isPlayerInteractive && savePlayerStats(myPlayer)"
-                      @blur="isPlayerInteractive && savePlayerStats(myPlayer)"
-                    />
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                      @click="adjustActionPoints(myPlayer, -1)"
-                    >
-                      -1
-                    </button>
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                      @click="adjustActionPoints(myPlayer, 1)"
-                    >
-                      +1
-                    </button>
-                    <button
-                      v-if="isPlayerInteractive"
-                      type="button"
-                      class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                      @click="resetActionPoints(myPlayer)"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="order-3 rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="discard"
-              :data-crawlv3-owner="myPlayer"
-              @contextmenu.prevent="openPileViewer(myPlayer, 'discard')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Spent</p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  :class="[
-                    'relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg',
-                    isPlayerInteractive ? 'cursor-pointer' : 'cursor-default',
-                  ]"
-                  @pointerdown="isPlayerInteractive && startTopPileDrag('discard', $event)"
-                  @dragstart.prevent
-                >
-                  <img
-                    v-if="pilePreviewImage(myTopDiscardCard)"
-                    :src="pilePreviewImage(myTopDiscardCard)"
-                    alt="Your spent pile"
-                    draggable="false"
-                    class="h-full w-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
-                  >
-                    Spent
-                  </div>
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ myDiscardCards.length }}</p>
-                </div>
-              </div>
-
-              <div v-if="isPlayerInteractive" class="mt-4">
-                <button
-                  type="button"
-                  :class="buttonClasses.deck"
-                  :disabled="!isPlayerInteractive || !myDiscardCards.length"
-                  @click="shuffleDiscardIntoDeck"
-                >
-                  Shuffle Into Draw
-                </button>
-              </div>
-            </div>
-
-            <div
-              class="order-5 rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="deck"
-              :data-crawlv3-owner="myPlayer"
-              @contextmenu.prevent="openPileViewer(myPlayer, 'deck')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Draw</p>
-              </div>
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  :class="['relative h-28 w-20', isPlayerInteractive ? 'cursor-pointer' : 'cursor-default']"
-                  @pointerdown="isPlayerInteractive && startTopPileDrag('deck', $event)"
-                  @dragstart.prevent
-                >
-                  <div
-                    v-if="!myDeckCards.length"
-                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
-                  />
-                  <img
-                    v-for="depth in Math.min(myDeckCards.length, 3)"
-                    :key="depth"
-                    :src="cardBackImage"
-                    alt="Draw pile"
-                    draggable="false"
-                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
-                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
-                  />
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ myDeckCards.length }}</p>
-                </div>
-              </div>
-
-              <div v-if="isPlayerInteractive" class="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  :class="buttonClasses.hand"
-                  :disabled="!isPlayerInteractive"
-                  @click="drawTopDeckCard"
-                >
-                  Draw Card
-                </button>
-                <button
-                  type="button"
-                  class="cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
-                  :disabled="!isPlayerInteractive"
-                  @click="shuffleDeck"
-                >
-                  Shuffle
-                </button>
-              </div>
-            </div>
-
-            <div
-              class="order-2 rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="exhausted"
-              :data-crawlv3-owner="myPlayer"
-              @contextmenu.prevent="openPileViewer(myPlayer, 'exhausted')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Exhausted</p>
-              </div>
-
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  :class="[
-                    'relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg',
-                    isPlayerInteractive ? 'cursor-pointer' : 'cursor-default',
-                  ]"
-                  @pointerdown="isPlayerInteractive && startTopPileDrag('exhausted', $event)"
-                  @dragstart.prevent
-                >
-                  <img
-                    v-if="pilePreviewImage(myTopExhaustedCard)"
-                    :src="pilePreviewImage(myTopExhaustedCard)"
-                    alt="Your exhausted pile"
-                    draggable="false"
-                    class="h-full w-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] p-3 text-center text-xs font-semibold text-amber-950"
-                  >
-                    Exhausted
-                  </div>
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ myExhaustedCards.length }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="order-4 rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
-              data-crawlv3-drop-zone="extraDeck"
-              :data-crawlv3-owner="myPlayer"
-              @contextmenu.prevent="openPileViewer(myPlayer, 'extraDeck')"
-            >
-              <div>
-                <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Extra Deck</p>
-              </div>
-              <div class="mt-4 flex items-center gap-4">
-                <div
-                  :class="['relative h-28 w-20', isPlayerInteractive ? 'cursor-pointer' : 'cursor-default']"
-                  @pointerdown="isPlayerInteractive && startTopPileDrag('extraDeck', $event)"
-                  @dragstart.prevent
-                >
-                  <div
-                    v-if="!myExtraDeckCards.length"
-                    class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
-                  />
-                  <img
-                    v-for="depth in Math.min(myExtraDeckCards.length, 3)"
-                    :key="depth"
-                    :src="cardBackImage"
-                    alt="Extra deck pile"
-                    draggable="false"
-                    class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
-                    :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
-                  />
-                </div>
-                <div>
-                  <p class="text-2xl font-semibold">{{ myExtraDeckCards.length }}</p>
-                </div>
-              </div>
-            </div>
+            <CrawlV3PlayerStatsPanel
+              v-model:life-points="statDrafts[myPlayer].lifePoints"
+              v-model:action-points="statDrafts[myPlayer].actionPoints"
+              eyebrow="You"
+              :player-name="game.players[myPlayer]?.username"
+              :editable="isPlayerInteractive"
+              wide
+              @save="savePlayerStats(myPlayer)"
+              @adjust-life="adjustLifePoints(myPlayer, $event)"
+              @adjust-action="adjustActionPoints(myPlayer, $event)"
+              @reset-action="resetActionPoints(myPlayer)"
+            />
+            <CrawlV3PilePanel
+              title="Your Exhausted"
+              zone="exhausted"
+              :owner="myPlayer"
+              :count="myExhaustedCards.length"
+              :card-back-image="cardBackImage"
+              :top-image="pilePreviewImage(myTopExhaustedCard)"
+              :interactive="isPlayerInteractive"
+              can-inspect
+              order-class="order-2"
+              @open="openPileViewer(myPlayer, $event)"
+              @drag="startTopPileDrag"
+            />
+            <CrawlV3PilePanel
+              title="Your Spent"
+              zone="discard"
+              :owner="myPlayer"
+              :count="myDiscardCards.length"
+              :card-back-image="cardBackImage"
+              :top-image="pilePreviewImage(myTopDiscardCard)"
+              :interactive="isPlayerInteractive"
+              can-inspect
+              order-class="order-3"
+              actions="spent"
+              @open="openPileViewer(myPlayer, $event)"
+              @drag="startTopPileDrag"
+              @shuffle-spent="shuffleDiscardIntoDeck"
+            />
+            <CrawlV3PilePanel
+              title="Your Extra Deck"
+              zone="extraDeck"
+              :owner="myPlayer"
+              :count="myExtraDeckCards.length"
+              :card-back-image="cardBackImage"
+              :interactive="isPlayerInteractive"
+              can-inspect
+              order-class="order-4"
+              @open="openPileViewer(myPlayer, $event)"
+              @drag="startTopPileDrag"
+            />
+            <CrawlV3PilePanel
+              title="Your Draw"
+              zone="deck"
+              :owner="myPlayer"
+              :count="myDeckCards.length"
+              :card-back-image="cardBackImage"
+              :interactive="isPlayerInteractive"
+              can-inspect
+              order-class="order-5"
+              actions="draw"
+              @open="openPileViewer(myPlayer, $event)"
+              @drag="startTopPileDrag"
+              @draw="drawTopDeckCard"
+              @shuffle="shuffleDeck"
+            />
           </div>
         </section>
       </div>
 
-      <aside
-        class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-5 shadow-2xl backdrop-blur-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
-      >
-        <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Selected Card</p>
-
-        <template v-if="selectedOwnCard">
-          <div class="mt-4 flex justify-center">
-            <CrawlV3Card
-              :card="selectedOwnCardPreview ?? selectedOwnCard"
-              :show-face="true"
-              :status-labels="statusLabels"
-              @contextmenu.prevent="previewCardId = selectedOwnCard.instanceId"
-              @mouseenter.stop
-              @mousemove.stop
-              @mouseleave.stop
-              @decrement-status="decrementCardStatus(selectedOwnCard.instanceId, $event.kind, $event.key)"
-              @increment-status="incrementCardStatus(selectedOwnCard.instanceId, $event.kind, $event.key)"
-            />
-          </div>
-
-          <h2 class="mt-4 text-2xl font-semibold">{{ selectedOwnCard.title }}</h2>
-          <p class="mt-1 text-sm text-white/55">
-            {{ formatZoneLabel(selectedOwnCard.zone) }} Zone | {{ formatFaceLabel(selectedOwnCard.faceUp) }} |
-            {{ formatPositionLabel(selectedOwnCard.rotated) }}
-          </p>
-
-          <div
-            v-if="shouldShowCardStat(selectedOwnCard, 'atk') || shouldShowCardStat(selectedOwnCard, 'def')"
-            class="mt-4 grid gap-3 sm:grid-cols-2"
-          >
-            <label v-if="shouldShowCardStat(selectedOwnCard, 'atk')" class="block">
-              <span class="mb-2 block text-sm text-white/60">ATK</span>
-              <input
-                v-model="selectedAtk"
-                type="text"
-                class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                @focus="focusedSelectedStat = 'atk'"
-                @keyup.enter="saveSelectedStat('atk')"
-                @blur="blurSelectedStat('atk')"
-              />
-            </label>
-            <label v-if="shouldShowCardStat(selectedOwnCard, 'def')" class="block">
-              <span class="mb-2 block text-sm text-white/60">DEF</span>
-              <input
-                v-model="selectedDef"
-                type="text"
-                class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                @focus="focusedSelectedStat = 'def'"
-                @keyup.enter="saveSelectedStat('def')"
-                @blur="blurSelectedStat('def')"
-              />
-            </label>
-          </div>
-
-          <div class="mt-4 grid gap-3 sm:grid-cols-2">
-            <label class="block">
-              <span class="mb-2 block text-sm text-white/60">Race</span>
-              <CrawlV3Select
-                v-model="selectedRace"
-                :options="selectedRaceOptions"
-                @change="saveSelectedDetail('race')"
-              />
-            </label>
-            <label class="block">
-              <span class="mb-2 block text-sm text-white/60">Type</span>
-              <CrawlV3Select
-                v-model="selectedDamageType"
-                :options="selectedDamageTypeOptions"
-                @change="saveSelectedDetail('damageType')"
-              />
-            </label>
-          </div>
-
-          <div class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
-            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Description</p>
-            <p class="mt-3 text-sm whitespace-pre-wrap text-white/78">
-              {{ selectedOwnCard.description || 'No description provided.' }}
-            </p>
-          </div>
-
-          <div v-if="!selectedMoveMode" class="mt-4 grid gap-2">
-            <button
-              v-if="selectedOwnCard.zone === 'table'"
-              type="button"
-              :class="[buttonClasses.flip, 'w-full']"
-              @click="toggleSelectedFace"
-            >
-              Flip card
-            </button>
-            <button
-              v-if="selectedOwnCard.zone === 'table'"
-              type="button"
-              :class="[buttonClasses.position, 'w-full']"
-              @click="toggleSelectedRotation"
-            >
-              Switch stance
-            </button>
-            <button
-              type="button"
-              class="w-full cursor-pointer rounded-full bg-amber-300 px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-200"
-              @click="statusCardId = selectedOwnCard.instanceId"
-            >
-              Modifiers
-            </button>
-            <button type="button" :class="[buttonClasses.neutral, 'w-full']" @click="selectedMoveMode = true">
-              Move
-            </button>
-          </div>
-
-          <div v-else class="mt-4 grid gap-2">
-            <button
-              v-if="selectedOwnCard.zone !== 'hand'"
-              type="button"
-              :class="[buttonClasses.hand, 'w-full']"
-              @click="moveSelectedCardTo('hand')"
-            >
-              Hand
-            </button>
-            <button
-              v-if="selectedOwnCard.zone !== 'table'"
-              type="button"
-              :class="[buttonClasses.table, 'w-full']"
-              @click="moveSelectedCardTo('table')"
-            >
-              Table
-            </button>
-            <button
-              v-if="selectedOwnCard.zone !== 'exhausted'"
-              type="button"
-              :class="[buttonClasses.exhausted, 'w-full']"
-              @click="moveSelectedCardTo('exhausted')"
-            >
-              Exhausted
-            </button>
-            <button
-              v-if="selectedOwnCard.zone !== 'discard'"
-              type="button"
-              :class="[buttonClasses.discard, 'w-full']"
-              @click="moveSelectedCardTo('discard')"
-            >
-              Spent
-            </button>
-            <button
-              v-if="selectedOwnCard.zone !== 'extraDeck'"
-              type="button"
-              :class="[buttonClasses.extraDeck, 'w-full']"
-              @click="moveSelectedCardTo('extraDeck')"
-            >
-              Extra Deck
-            </button>
-            <button
-              v-if="selectedOwnCard.zone !== 'deck'"
-              type="button"
-              :class="[buttonClasses.deck, 'w-full']"
-              @click="moveSelectedCardTo('deck')"
-            >
-              Draw
-            </button>
-            <button type="button" :class="[buttonClasses.neutral, 'w-full']" @click="selectedMoveMode = false">
-              Cancel
-            </button>
-          </div>
-
-          <div
-            v-if="
-              getCardStatusEntries(selectedOwnCard, 'buff').length ||
-              getCardStatusEntries(selectedOwnCard, 'debuff').length
-            "
-            class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4"
-          >
-            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Statuses</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <span
-                v-for="status in getCardStatusEntries(selectedOwnCard, 'buff')"
-                :key="`selected-buff-${status.id}`"
-                class="rounded-full bg-emerald-400/85 px-2.5 py-1 text-xs font-semibold text-emerald-950"
-              >
-                {{ status.name }} {{ status.value }}
-              </span>
-              <span
-                v-for="status in getCardStatusEntries(selectedOwnCard, 'debuff')"
-                :key="`selected-debuff-${status.id}`"
-                class="rounded-full bg-rose-400/85 px-2.5 py-1 text-xs font-semibold text-rose-950"
-              >
-                {{ status.name }} {{ status.value }}
-              </span>
-            </div>
-          </div>
-        </template>
-
-        <template v-else-if="selectedCard">
-          <div class="mt-4 flex justify-center">
-            <CrawlV3Card
-              :card="selectedCardPreview ?? selectedCard"
-              :show-face="selectedReadonlyShowFace"
-              :interactive="false"
-              :status-labels="statusLabels"
-              @contextmenu.prevent="previewCardId = selectedCard.instanceId"
-              @mouseenter.stop
-              @mousemove.stop
-              @mouseleave.stop
-            />
-          </div>
-
-          <h2 class="mt-4 text-2xl font-semibold">
-            {{ selectedReadonlyShowFace ? selectedCard.title : 'Face-down card' }}
-          </h2>
-          <p class="mt-1 text-sm text-white/55">
-            {{ formatZoneLabel(selectedCard.zone) }} Zone
-            <template v-if="selectedReadonlyShowFace">
-              | {{ formatFaceLabel(selectedCard.faceUp) }} | {{ formatPositionLabel(selectedCard.rotated) }}
-            </template>
-          </p>
-
-          <div
-            v-if="
-              selectedReadonlyShowFace &&
-              (shouldShowCardStat(selectedCard, 'atk') || shouldShowCardStat(selectedCard, 'def'))
-            "
-            class="mt-4 grid gap-3 sm:grid-cols-2"
-          >
-            <label v-if="shouldShowCardStat(selectedCard, 'atk')" class="block">
-              <span class="mb-2 block text-sm text-white/60">ATK</span>
-              <input
-                :value="selectedCard.atk"
-                type="text"
-                disabled
-                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
-              />
-            </label>
-            <label v-if="shouldShowCardStat(selectedCard, 'def')" class="block">
-              <span class="mb-2 block text-sm text-white/60">DEF</span>
-              <input
-                :value="selectedCard.def"
-                type="text"
-                disabled
-                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
-              />
-            </label>
-          </div>
-
-          <div v-if="selectedReadonlyShowFace" class="mt-4 grid gap-3 sm:grid-cols-2">
-            <label class="block">
-              <span class="mb-2 block text-sm text-white/60">Race</span>
-              <input
-                :value="selectedCard.race || 'No race'"
-                type="text"
-                disabled
-                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
-              />
-            </label>
-            <label class="block">
-              <span class="mb-2 block text-sm text-white/60">Type</span>
-              <input
-                :value="selectedCard.damageType || 'No type'"
-                type="text"
-                disabled
-                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
-              />
-            </label>
-          </div>
-
-          <div v-if="selectedReadonlyShowFace" class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
-            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Description</p>
-            <p class="mt-3 text-sm whitespace-pre-wrap text-white/78">
-              {{ selectedCard.description || 'No description provided.' }}
-            </p>
-          </div>
-
-          <div
-            v-if="
-              selectedReadonlyShowFace &&
-              (getCardStatusEntries(selectedCard, 'buff').length ||
-                getCardStatusEntries(selectedCard, 'debuff').length)
-            "
-            class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4"
-          >
-            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Statuses</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <span
-                v-for="status in getCardStatusEntries(selectedCard, 'buff')"
-                :key="`readonly-buff-${status.id}`"
-                class="rounded-full bg-emerald-400/85 px-2.5 py-1 text-xs font-semibold text-emerald-950"
-              >
-                {{ status.name }} {{ status.value }}
-              </span>
-              <span
-                v-for="status in getCardStatusEntries(selectedCard, 'debuff')"
-                :key="`readonly-debuff-${status.id}`"
-                class="rounded-full bg-rose-400/85 px-2.5 py-1 text-xs font-semibold text-rose-950"
-              >
-                {{ status.name }} {{ status.value }}
-              </span>
-            </div>
-          </div>
-        </template>
-
-        <div v-else class="mt-6 rounded-[1.25rem] border border-white/10 bg-white/5 p-5 text-sm text-white/55">
-          {{
-            isSpectator
-              ? 'Right-click cards or piles to inspect them. Spectators cannot move or edit cards.'
-              : 'Select one of your cards or drag it around the sandbox to edit it here.'
-          }}
-        </div>
-      </aside>
+      <CrawlV3SelectedCardPanel
+        v-model:selected-atk="selectedAtk"
+        v-model:selected-def="selectedDef"
+        v-model:selected-race="selectedRace"
+        v-model:selected-damage-type="selectedDamageType"
+        v-model:focused-selected-stat="focusedSelectedStat"
+        v-model:move-mode="selectedMoveMode"
+        :selected-own-card="selectedOwnCard"
+        :selected-own-card-preview="selectedOwnCardPreview"
+        :selected-card="selectedCard"
+        :selected-card-preview="selectedCardPreview"
+        :selected-readonly-show-face="selectedReadonlyShowFace"
+        :is-spectator="isSpectator"
+        :status-labels="statusLabels"
+        :race-options="selectedRaceOptions"
+        :damage-type-options="selectedDamageTypeOptions"
+        :get-status-entries="getCardStatusEntries"
+        @preview="previewCardId = $event"
+        @decrement-status="decrementCardStatus"
+        @increment-status="incrementCardStatus"
+        @save-stat="saveSelectedStat"
+        @blur-stat="blurSelectedStat"
+        @save-detail="saveSelectedDetail"
+        @toggle-face="toggleSelectedFace"
+        @toggle-rotation="toggleSelectedRotation"
+        @edit-statuses="statusCardId = $event"
+        @move-card="moveSelectedCardTo"
+      />
     </div>
 
     <CrawlV3DragGhost
