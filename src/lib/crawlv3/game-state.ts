@@ -38,10 +38,12 @@ export function createEmptyCrawlv3Game(): Crawlv3Game {
       player1: null,
       player2: null,
     },
+    spectators: [],
     deckSelections: {
       player1: null,
       player2: null,
     },
+    cardSelections: {},
     cards: {},
     processedActions: [],
   }
@@ -285,6 +287,7 @@ export function applyConfigDefaultsToPlayers(game: Crawlv3Game) {
 export function completeCrawlv3Game(game: Crawlv3Game) {
   game.status = 'lobby'
   game.cards = {}
+  game.cardSelections = {}
   for (const playerKey of ['player1', 'player2'] as const) {
     const selection = game.deckSelections[playerKey]
     if (!selection) continue
@@ -294,7 +297,12 @@ export function completeCrawlv3Game(game: Crawlv3Game) {
   applyConfigDefaultsToPlayers(game)
 }
 
-export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, actor?: Crawlv3Player): Crawlv3Game {
+export function applyCrawlv3Action(
+  game: Crawlv3Game,
+  action: Crawlv3Action,
+  actor?: Crawlv3Player,
+  actorUid?: string,
+): Crawlv3Game {
   const nextGame = cloneGame(game)
 
   switch (action.type) {
@@ -317,6 +325,15 @@ export function applyCrawlv3Action(game: Crawlv3Game, action: Crawlv3Action, act
       if (!actor || !nextGame.deckSelections[actor]) break
       if (action.ready && !nextGame.deckSelections[actor].cards.length) break
       nextGame.deckSelections[actor].ready = action.ready
+      break
+    }
+    case 'select_card': {
+      if (!actorUid) break
+      nextGame.cardSelections = nextGame.cardSelections ?? {}
+      nextGame.cardSelections[actorUid] = {
+        instanceId: action.instanceId,
+        visibleTo: action.visibleTo,
+      }
       break
     }
     case 'move_card': {

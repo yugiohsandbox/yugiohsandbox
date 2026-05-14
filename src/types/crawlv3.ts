@@ -65,10 +65,21 @@ export interface Crawlv3PlayerInfo {
   actionPoints: number
 }
 
+export interface Crawlv3SpectatorInfo {
+  uid: string
+  username: string
+  joinedAt: number
+}
+
 export interface Crawlv3DeckSelection {
   cards: Crawlv3CatalogCard[]
   ready: boolean
   updatedAt: number
+}
+
+export interface Crawlv3CardSelection {
+  instanceId: string | null
+  visibleTo: Crawlv3Player[]
 }
 
 export interface Crawlv3CardState {
@@ -109,10 +120,12 @@ export interface Crawlv3Game {
     player1: Crawlv3PlayerInfo | null
     player2: Crawlv3PlayerInfo | null
   }
+  spectators: Crawlv3SpectatorInfo[]
   deckSelections: {
     player1: Crawlv3DeckSelection | null
     player2: Crawlv3DeckSelection | null
   }
+  cardSelections: Record<string, Crawlv3CardSelection>
   cards: Record<string, Crawlv3CardState>
   processedActions: string[]
 }
@@ -131,6 +144,12 @@ export type Crawlv3Action =
   | {
       type: 'set_ready'
       ready: boolean
+      actionId: string
+    }
+  | {
+      type: 'select_card'
+      instanceId: string | null
+      visibleTo: Crawlv3Player[]
       actionId: string
     }
   | {

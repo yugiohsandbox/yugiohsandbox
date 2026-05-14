@@ -10,6 +10,7 @@ const props = withDefaults(
     card: Crawlv3CardState
     showFace: boolean
     selected?: boolean
+    selectedByOther?: boolean
     ghosted?: boolean
     fillParent?: boolean
     interactive?: boolean
@@ -17,6 +18,7 @@ const props = withDefaults(
   }>(),
   {
     selected: false,
+    selectedByOther: false,
     ghosted: false,
     fillParent: false,
     interactive: true,
@@ -56,7 +58,11 @@ const cardStyle = computed(() => ({
     class="relative block aspect-[63/88] overflow-hidden border bg-transparent text-left shadow-[0_1rem_2.5rem_rgba(0,0,0,0.35)] transition-transform"
     :class="[
       interactive ? 'cursor-pointer' : 'cursor-default',
-      selected ? 'border-amber-300 ring-2 ring-amber-300/80' : 'border-transparent',
+      selectedByOther
+        ? 'border-white ring-2 ring-white/90'
+        : selected
+          ? 'border-amber-300 ring-2 ring-amber-300/80'
+          : 'border-transparent',
       ghosted ? 'opacity-40' : 'opacity-100',
     ]"
     :style="cardStyle"

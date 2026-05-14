@@ -14,6 +14,7 @@ const props = withDefaults(
     fieldImageUrl?: string
     matchFieldImageAspect?: boolean
     selectedCardId?: string | null
+    otherSelectedCardIds?: string[]
     statusLabels?: Record<string, string>
     showGrid?: boolean
     isCardInteractive?: (card: Crawlv3CardState) => boolean
@@ -23,6 +24,7 @@ const props = withDefaults(
   {
     owner: undefined,
     selectedCardId: null,
+    otherSelectedCardIds: () => [],
     fieldImageUrl: '',
     matchFieldImageAspect: false,
     statusLabels: () => ({}),
@@ -137,6 +139,7 @@ onBeforeUnmount(() => {
         fill-parent
         :show-face="getCardRenderFace(card)"
         :selected="selectedCardId === card.instanceId"
+        :selected-by-other="otherSelectedCardIds.includes(card.instanceId)"
         :interactive="isCardInteractive(card)"
         :status-labels="statusLabels"
         @pointerdown="emit('card-pointerdown', card, $event)"

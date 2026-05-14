@@ -13,7 +13,7 @@ function createCrawlv3Controller() {
   })
 
   const isDeckReady = computed(() => !!myDeckSelection.value?.ready)
-  const canEditDeckSelection = computed(() => !isDeckReady.value)
+  const canEditDeckSelection = computed(() => !!room.myPlayer.value && !isDeckReady.value)
 
   function setReadyState(ready: boolean) {
     room.enqueueAction({

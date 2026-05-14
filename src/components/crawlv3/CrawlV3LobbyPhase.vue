@@ -13,9 +13,11 @@ import type { Crawlv3CatalogCard, Crawlv3CatalogConfig } from '@/types/crawlv3'
 const {
   game,
   myPlayer,
+  isSpectator,
   isHost,
   serverSnapshot,
   phase,
+  spectatorPerspective,
   enqueueAction,
   resetRoomSession,
   myDeckSelection,
@@ -59,6 +61,19 @@ const catalogPreviewCard = ref<Crawlv3CatalogCard | null>(null)
 const catalogTooltipCard = ref<Crawlv3CatalogCard | null>(null)
 const catalogTooltipPoint = ref<{ x: number; y: number } | null>(null)
 
+type SelectedCardRow = {
+  card: Crawlv3CatalogCard
+  count: number
+}
+
+const spectatorPerspectiveOptions = computed(() => [
+  { value: 'both', label: 'Both' },
+  { value: 'player1', label: game.value?.players.player1?.username ?? 'Player 1' },
+  { value: 'player2', label: game.value?.players.player2?.username ?? 'Player 2' },
+])
+
+const spectators = computed(() => game.value?.spectators ?? [])
+
 const canPreviewCatalogDraft = computed(() => {
   const config = configDraft.value
   return !!safeTrim(config?.csvUrl) && !!safeTrim(config?.headers?.id) && !!safeTrim(config?.headers?.title)
@@ -75,6 +90,30 @@ const selectedCatalogRows = computed(() => {
   const counts = selectedCatalogCounts.value
   return catalogCards.value.map((card) => ({ card, count: counts[card.id] ?? 0 })).filter((row) => row.count > 0)
 })
+
+function getSelectedRows(cards: Crawlv3CatalogCard[] | undefined): SelectedCardRow[] {
+  const rows = new Map<string, SelectedCardRow>()
+
+  for (const card of cards ?? []) {
+    const existing = rows.get(card.id)
+    if (existing) {
+      existing.count += 1
+    } else {
+      rows.set(card.id, { card, count: 1 })
+    }
+  }
+
+  return [...rows.values()].sort((left, right) => left.card.title.localeCompare(right.card.title))
+}
+
+const playerSelectionRows = computed<Record<'player1' | 'player2', SelectedCardRow[]>>(() => ({
+  player1: getSelectedRows(game.value?.deckSelections.player1?.cards),
+  player2: getSelectedRows(game.value?.deckSelections.player2?.cards),
+}))
+
+function canSpectatorSeePlayerSelection(playerKey: 'player1' | 'player2') {
+  return spectatorPerspective.value === 'both' || spectatorPerspective.value === playerKey
+}
 
 function splitCatalogValues(value: string) {
   return value
@@ -421,6 +460,20 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
               </p>
             </div>
           </div>
+
+          <div class="mt-6 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold tracking-[0.25em] text-white/40 uppercase">Spectators</p>
+            <div v-if="spectators.length" class="mt-3 space-y-2">
+              <p
+                v-for="spectator in spectators"
+                :key="spectator.uid"
+                class="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/75"
+              >
+                {{ spectator.username }}
+              </p>
+            </div>
+            <p v-else class="mt-3 text-sm text-white/45">No spectators yet.</p>
+          </div>
         </section>
 
         <section class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-6 shadow-2xl backdrop-blur-sm">
@@ -656,16 +709,24 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
         </section>
       </aside>
 
-      <section class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-6 shadow-2xl backdrop-blur-sm">
+      <section
+        class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-6 shadow-2xl backdrop-blur-sm"
+        :class="isSpectator ? 'xl:col-span-2' : ''"
+      >
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Deck Selection</p>
-            <h2 class="mt-2 text-2xl font-semibold">Pick Starting Cards</h2>
-            <p class="mt-2 text-white/60">
+            <h2 class="mt-2 text-2xl font-semibold">
+              {{ isSpectator ? 'Spectator View' : 'Pick Starting Cards' }}
+            </h2>
+            <p v-if="!isSpectator" class="mt-2 text-white/60">
               Choose any number of cards. Changes save automatically, so ready up once you are happy.
             </p>
+            <p v-else class="mt-2 text-white/60">
+              Watch either player perspective, or choose Both to inspect every selected card.
+            </p>
           </div>
-          <div class="flex flex-wrap gap-3">
+          <div v-if="!isSpectator" class="flex flex-wrap gap-3">
             <button
               v-if="draftMode === 'catalog'"
               type="button"
@@ -703,6 +764,90 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
           </div>
         </div>
 
+        <template v-if="isSpectator">
+          <div class="mt-6 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/65">Spectate</span>
+              <CrawlV3Select v-model="spectatorPerspective" :options="spectatorPerspectiveOptions" />
+            </label>
+          </div>
+
+          <div class="mt-6 grid gap-4 xl:grid-cols-2">
+            <section
+              v-for="playerKey in ['player1', 'player2'] as const"
+              :key="`spectator-selection-${playerKey}`"
+              class="rounded-[1.5rem] border border-white/10 bg-white/5 p-4"
+              :class="!canSpectatorSeePlayerSelection(playerKey) ? 'opacity-75' : ''"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.25em] text-white/40 uppercase">
+                    {{ playerKey === 'player1' ? 'Host' : 'Player 2' }}
+                  </p>
+                  <h3 class="mt-1 text-xl font-semibold">
+                    {{ game?.players[playerKey]?.username ?? 'Waiting for player...' }}
+                  </h3>
+                </div>
+                <span class="rounded-full bg-black/25 px-3 py-1 text-xs font-semibold text-white/70">
+                  {{
+                    canSpectatorSeePlayerSelection(playerKey)
+                      ? `${game?.deckSelections[playerKey]?.cards.length ?? 0} cards`
+                      : 'Hidden'
+                  }}
+                </span>
+              </div>
+
+              <div
+                v-if="!canSpectatorSeePlayerSelection(playerKey)"
+                class="mt-4 rounded-[1rem] border border-white/10 bg-black/20 p-4 text-sm text-white/50"
+              >
+                This player's selected cards are hidden for your current spectator view.
+              </div>
+
+              <div
+                v-else-if="!playerSelectionRows[playerKey].length"
+                class="mt-4 rounded-[1rem] border border-white/10 bg-black/20 p-4 text-sm text-white/50"
+              >
+                No cards selected.
+              </div>
+
+              <div v-else class="mt-4 space-y-2">
+                <button
+                  v-for="{ card, count } in playerSelectionRows[playerKey]"
+                  :key="`spectator-selected-${playerKey}-${card.id}`"
+                  type="button"
+                  class="flex w-full cursor-default items-center gap-3 rounded-[1rem] border border-white/10 bg-black/20 p-2 text-left"
+                  :aria-label="`${card.title} selected ${count} times`"
+                  @contextmenu.prevent.stop="catalogPreviewCard = card"
+                >
+                  <div class="h-14 w-10 shrink-0 overflow-hidden border border-white/10 bg-transparent">
+                    <img
+                      v-if="card.imageUrl"
+                      :src="card.imageUrl"
+                      :alt="card.title"
+                      class="h-full w-full object-cover"
+                    />
+                    <div
+                      v-else
+                      class="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#f7e6c0_0%,#ddc48f_35%,#7b5f31_100%)] text-[0.55rem] font-semibold text-amber-950"
+                    >
+                      {{ card.title.slice(0, 2) }}
+                    </div>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-semibold text-white/90">{{ card.title }}</p>
+                    <p class="mt-0.5 truncate text-xs text-white/45">{{ getSelectedCardSubtext(card) }}</p>
+                  </div>
+                  <span class="rounded-full bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950">
+                    x{{ count }}
+                  </span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </template>
+
+        <template v-else>
         <div v-if="draftMode === 'catalog'" class="mt-6 flex flex-wrap items-center gap-3">
           <input
             v-model="catalogSearch"
@@ -914,9 +1059,11 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
             </div>
           </div>
         </div>
+        </template>
       </section>
 
       <aside
+        v-if="!isSpectator"
         class="rounded-[1.75rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm xl:sticky xl:top-8 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto"
       >
         <div class="flex items-center justify-between gap-3">

@@ -8,6 +8,8 @@ import type { Crawlv3DragState, Crawlv3PileZone, Crawlv3TooltipState, QueuedCraw
 type UseCrawlv3BoardOptions = {
   game: ComputedRef<Crawlv3Game | null>
   myPlayer: ComputedRef<Crawlv3Player | null>
+  actorPlayer?: ComputedRef<Crawlv3Player | null>
+  revealAllCards?: ComputedRef<boolean>
   isPerspectiveFlipped: ComputedRef<boolean>
   tableCards: ComputedRef<Crawlv3CardState[]>
   myHandCards: ComputedRef<Crawlv3CardState[]>
@@ -16,6 +18,7 @@ type UseCrawlv3BoardOptions = {
   fieldCardWidth: Ref<string>
   selectedCardId: Ref<string | null>
   enqueueAction: (action: QueuedCrawlv3Action) => void
+  onSelectCard?: (cardId: string | null) => void
   onClearTransientUi?: () => void
 }
 
@@ -46,6 +49,8 @@ function cardMatchesCategories(card: Pick<Crawlv3CardState, 'category'>, categor
 export function useCrawlv3Board({
   game,
   myPlayer,
+  actorPlayer = myPlayer,
+  revealAllCards = computed(() => false),
   isPerspectiveFlipped,
   tableCards,
   myHandCards,
@@ -54,6 +59,7 @@ export function useCrawlv3Board({
   fieldCardWidth,
   selectedCardId,
   enqueueAction,
+  onSelectCard,
   onClearTransientUi,
 }: UseCrawlv3BoardOptions) {
   const boardCardScale = ref(fixedBoardCardScale)
@@ -88,12 +94,14 @@ export function useCrawlv3Board({
   function getCardRenderFace(card: Crawlv3CardState) {
     if (!myPlayer.value)
       return card.zone !== 'hand' && card.zone !== 'discard' && card.zone !== 'exhausted' && card.faceUp
+    if (revealAllCards.value && card.zone === 'hand') return true
     if (card.zone === 'hand') return card.owner === myPlayer.value
     if ((card.zone === 'discard' || card.zone === 'exhausted') && card.owner !== myPlayer.value) return false
     return card.faceUp
   }
 
   function canSeeCardDetails(card: Crawlv3CardState) {
+    if (revealAllCards.value) return true
     if (!myPlayer.value)
       return card.faceUp && card.zone !== 'hand' && card.zone !== 'discard' && card.zone !== 'exhausted'
     if (card.owner === myPlayer.value) return true
@@ -127,7 +135,9 @@ export function useCrawlv3Board({
   }
 
   function selectCard(cardId: string) {
-    selectedCardId.value = selectedCardId.value === cardId ? null : cardId
+    const nextCardId = selectedCardId.value === cardId ? null : cardId
+    selectedCardId.value = nextCardId
+    onSelectCard?.(nextCardId)
   }
 
   function adjustBoardCardScale(delta: number) {
@@ -163,7 +173,11 @@ export function useCrawlv3Board({
   }
 
   function startCardDrag(card: Crawlv3CardState, event: PointerEvent) {
-    if (!myPlayer.value || card.owner !== myPlayer.value || event.button !== 0) return
+    if (event.button !== 0) return
+    if (!actorPlayer.value || card.owner !== actorPlayer.value) {
+      selectCard(card.instanceId)
+      return
+    }
 
     const cardElement = event.currentTarget as HTMLElement | null
     const cardShell = (event.target as HTMLElement | null)?.closest('[data-crawlv3-card-shell]') as HTMLElement | null
@@ -267,9 +281,9 @@ export function useCrawlv3Board({
     }
 
     const target = resolveDropTarget(event.clientX, event.clientY, currentDrag)
-    if (!target || !myPlayer.value) return
+    if (!target || !actorPlayer.value) return
 
-    if ((isPileZone(target.zone) || target.zone === 'hand') && target.owner !== myPlayer.value) {
+    if ((isPileZone(target.zone) || target.zone === 'hand') && target.owner !== actorPlayer.value) {
       return
     }
 
@@ -355,9 +369,9 @@ export function useCrawlv3Board({
   }
 
   function drawTopDeckCard() {
-    if (!myPlayer.value || !game.value) return
+    if (!actorPlayer.value || !game.value) return
 
-    const topDeckCard = getTopPileCard(game.value.cards, 'deck', myPlayer.value)
+    const topDeckCard = getTopPileCard(game.value.cards, 'deck', actorPlayer.value)
     if (topDeckCard) {
       moveCardToZone(topDeckCard.instanceId, 'hand')
       return

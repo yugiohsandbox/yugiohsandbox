@@ -4,8 +4,10 @@ import { db } from '../lib/firebase.js'
 import { verifyAuth } from '../lib/auth.js'
 import {
   addCrawlv3Player2,
+  addCrawlv3Spectator,
   CRAWLV3_GAMES_COLLECTION,
   getCrawlv3PlayerKey,
+  isCrawlv3Spectator,
   sanitizeCrawlv3Config,
   type Crawlv3Game,
 } from '../lib/crawlv3.js'
@@ -40,17 +42,10 @@ const handler = async (event: { body: string; headers: Record<string, string> })
     const gameDoc = querySnapshot.docs[0]
     const game = gameDoc.data() as Crawlv3Game
     game.config = sanitizeCrawlv3Config(game.config)
+    game.spectators = Array.isArray(game.spectators) ? game.spectators : []
 
-    if (getCrawlv3PlayerKey(game, authResult.auth.uid)) {
+    if (getCrawlv3PlayerKey(game, authResult.auth.uid) || isCrawlv3Spectator(game, authResult.auth.uid)) {
       return jsonResponse(200, { id: gameDoc.id, ...game })
-    }
-
-    if (game.status !== 'lobby') {
-      return jsonResponse(400, { message: 'Game already started' })
-    }
-
-    if (game.players.player2) {
-      return jsonResponse(400, { message: 'Game is full' })
     }
 
     const docRef = doc(db, CRAWLV3_GAMES_COLLECTION, gameDoc.id)
@@ -60,13 +55,21 @@ const handler = async (event: { body: string; headers: Record<string, string> })
       const current = snapshot.data() as Crawlv3Game | undefined
 
       if (!current) throw new Error('Game not found')
-      if (getCrawlv3PlayerKey(current, authResult.auth.uid)) return
-      if (current.status !== 'lobby') throw new Error('Game already started')
-      if (current.players.player2) throw new Error('Game is full')
+      current.spectators = Array.isArray(current.spectators) ? current.spectators : []
+      if (getCrawlv3PlayerKey(current, authResult.auth.uid) || isCrawlv3Spectator(current, authResult.auth.uid)) return
 
-      addCrawlv3Player2(current, authResult.auth.uid, body.username)
+      if (current.status === 'lobby' && !current.players.player2) {
+        addCrawlv3Player2(current, authResult.auth.uid, body.username)
+        transaction.update(docRef, {
+          'players.player2': current.players.player2,
+          _version: current._version,
+        })
+        return
+      }
+
+      addCrawlv3Spectator(current, authResult.auth.uid, body.username)
       transaction.update(docRef, {
-        'players.player2': current.players.player2,
+        spectators: current.spectators,
         _version: current._version,
       })
     })
@@ -78,11 +81,7 @@ const handler = async (event: { body: string; headers: Record<string, string> })
   } catch (err) {
     console.error(err)
     const message = err instanceof Error ? err.message : String(err)
-    const statusCode = ['Game is full', 'Game already started'].includes(message)
-      ? 400
-      : message === 'Game not found'
-        ? 404
-        : 500
+    const statusCode = message === 'Game not found' ? 404 : 500
 
     return jsonResponse(statusCode, { message })
   }

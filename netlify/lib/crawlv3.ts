@@ -60,11 +60,22 @@ export interface Crawlv3DeckSelection {
   updatedAt: number
 }
 
+export interface Crawlv3CardSelection {
+  instanceId: string | null
+  visibleTo: Crawlv3Player[]
+}
+
 export interface Crawlv3PlayerInfo {
   uid: string
   username: string
   lifePoints: number
   actionPoints: number
+}
+
+export interface Crawlv3SpectatorInfo {
+  uid: string
+  username: string
+  joinedAt: number
 }
 
 export interface Crawlv3CardState {
@@ -105,10 +116,12 @@ export interface Crawlv3Game {
     player1: Crawlv3PlayerInfo | null
     player2: Crawlv3PlayerInfo | null
   }
+  spectators: Crawlv3SpectatorInfo[]
   deckSelections: {
     player1: Crawlv3DeckSelection | null
     player2: Crawlv3DeckSelection | null
   }
+  cardSelections: Record<string, Crawlv3CardSelection>
   cards: Record<string, Crawlv3CardState>
   processedActions: string[]
 }
@@ -127,6 +140,12 @@ export type Crawlv3Action =
   | {
       type: 'set_ready'
       ready: boolean
+      actionId: string
+    }
+  | {
+      type: 'select_card'
+      instanceId: string | null
+      visibleTo: Crawlv3Player[]
       actionId: string
     }
   | {
@@ -263,10 +282,12 @@ export function createCrawlv3Game(uid: string, username: string, config: Crawlv3
       player1: createCrawlv3Player(uid, username, config),
       player2: null,
     },
+    spectators: [],
     deckSelections: {
       player1: null,
       player2: null,
     },
+    cardSelections: {},
     cards: {},
     processedActions: [],
   }
@@ -278,9 +299,41 @@ export function getCrawlv3PlayerKey(game: Crawlv3Game, uid: string): Crawlv3Play
   return null
 }
 
+export function isCrawlv3Spectator(game: Crawlv3Game, uid: string) {
+  game.spectators = Array.isArray(game.spectators) ? game.spectators : []
+  return game.spectators.some((spectator) => spectator.uid === uid)
+}
+
+function isCrawlv3Participant(game: Crawlv3Game, uid: string) {
+  return !!getCrawlv3PlayerKey(game, uid) || isCrawlv3Spectator(game, uid)
+}
+
+function sanitizeSelectionVisibility(game: Crawlv3Game, uid: string, instanceId: string | null, requested: Crawlv3Player[]) {
+  const actorPlayer = getCrawlv3PlayerKey(game, uid)
+  const cardOwner = instanceId ? game.cards[instanceId]?.owner : null
+
+  if (actorPlayer) {
+    return cardOwner && cardOwner !== actorPlayer ? [cardOwner] : []
+  }
+
+  const allowedPlayers = new Set<Crawlv3Player>(['player1', 'player2'])
+  return [...new Set(requested)].filter((player): player is Crawlv3Player => allowedPlayers.has(player))
+}
+
 export function addCrawlv3Player2(game: Crawlv3Game, uid: string, username: string) {
   game.config = sanitizeCrawlv3Config(game.config)
   game.players.player2 = createCrawlv3Player(uid, username, game.config)
+  game._version = (game._version ?? 0) + 1
+}
+
+export function addCrawlv3Spectator(game: Crawlv3Game, uid: string, username: string) {
+  game.spectators = Array.isArray(game.spectators) ? game.spectators : []
+  if (isCrawlv3Spectator(game, uid)) return
+  game.spectators.push({
+    uid,
+    username,
+    joinedAt: Date.now(),
+  })
   game._version = (game._version ?? 0) + 1
 }
 
@@ -465,6 +518,7 @@ function applyConfigDefaultsToPlayers(game: Crawlv3Game) {
 function completeGame(game: Crawlv3Game) {
   game.status = 'lobby'
   game.cards = {}
+  game.cardSelections = {}
   for (const playerKey of ['player1', 'player2'] as const) {
     const selection = game.deckSelections[playerKey]
     if (!selection) continue
@@ -694,15 +748,34 @@ export function applyAuthenticatedCrawlv3Action(
   uid: string,
 ): Crawlv3ActionResult {
   game.config = sanitizeCrawlv3Config(game.config)
+  game.spectators = Array.isArray(game.spectators) ? game.spectators : []
+  game.cardSelections = game.cardSelections && typeof game.cardSelections === 'object' ? game.cardSelections : {}
   game.processedActions = Array.isArray(game.processedActions) ? game.processedActions : []
   const playerKey = getCrawlv3PlayerKey(game, uid)
 
-  if (!playerKey) {
-    return { success: false, error: 'Not a player in this game' }
-  }
-
   if (game.processedActions.includes(action.actionId)) {
     return { success: true }
+  }
+
+  if (action.type === 'select_card') {
+    if (!isCrawlv3Participant(game, uid)) {
+      return { success: false, error: 'Not a participant in this game' }
+    }
+    if (action.instanceId && !game.cards[action.instanceId]) {
+      return { success: false, error: 'Card not found' }
+    }
+    game.cardSelections[uid] = {
+      instanceId: action.instanceId,
+      visibleTo: sanitizeSelectionVisibility(game, uid, action.instanceId, action.visibleTo),
+    }
+    game.processedActions.push(action.actionId)
+    if (game.processedActions.length > 100) game.processedActions.shift()
+    game._version = (game._version ?? 0) + 1
+    return { success: true }
+  }
+
+  if (!playerKey) {
+    return { success: false, error: 'Spectators cannot perform game actions' }
   }
 
   const result =

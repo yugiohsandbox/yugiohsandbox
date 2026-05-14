@@ -10,7 +10,7 @@ import { createDefaultCrawlv3Config } from '@/lib/crawlv3/catalog'
 import { applyCrawlv3Action, cloneGame } from '@/lib/crawlv3/game-state'
 import { useUserStore } from '@/stores/user'
 import type { Crawlv3Action, Crawlv3Game, Crawlv3Player } from '@/types/crawlv3'
-import type { PendingCrawlv3ActionBatch, QueuedCrawlv3Action } from '@/types/crawlv3-ui'
+import type { Crawlv3SpectatorPerspective, PendingCrawlv3ActionBatch, QueuedCrawlv3Action } from '@/types/crawlv3-ui'
 
 export function useCrawlv3RoomSession() {
   const userStore = useUserStore()
@@ -21,6 +21,7 @@ export function useCrawlv3RoomSession() {
   const joinCode = ref(String(route.params.gameCode ?? ''))
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const spectatorPerspective = ref<Crawlv3SpectatorPerspective>('both')
   const serverSnapshot = shallowRef<Crawlv3Game | null>(null)
   const pendingActions = shallowRef<PendingCrawlv3ActionBatch[]>([])
   const sendQueue: PendingCrawlv3ActionBatch[] = []
@@ -28,12 +29,24 @@ export function useCrawlv3RoomSession() {
   let unsubscribeGame: Unsubscribe | null = null
   let errorTimer: ReturnType<typeof setTimeout> | null = null
 
+  const currentUserUid = computed(() => userStore.user?.firebaseUid ?? null)
+
   const myPlayer = computed<Crawlv3Player | null>(() => {
     if (!serverSnapshot.value || !userStore.user) return null
     if (serverSnapshot.value.players.player1?.uid === userStore.user.firebaseUid) return 'player1'
     if (serverSnapshot.value.players.player2?.uid === userStore.user.firebaseUid) return 'player2'
     return null
   })
+
+  const mySpectator = computed(() => {
+    if (!serverSnapshot.value || !userStore.user) return null
+    return (
+      (serverSnapshot.value.spectators ?? []).find((spectator) => spectator.uid === userStore.user?.firebaseUid) ??
+      null
+    )
+  })
+
+  const isSpectator = computed(() => !!mySpectator.value && !myPlayer.value)
 
   const opponentPlayer = computed<Crawlv3Player | null>(() => {
     if (!myPlayer.value) return null
@@ -44,7 +57,7 @@ export function useCrawlv3RoomSession() {
     if (!serverSnapshot.value) return null
     let state = cloneGame(serverSnapshot.value)
     for (const batch of pendingActions.value) {
-      state = applyCrawlv3Action(state, batch.action, myPlayer.value ?? undefined)
+      state = applyCrawlv3Action(state, batch.action, myPlayer.value ?? undefined, userStore.user?.firebaseUid)
     }
     return state
   })
@@ -57,12 +70,31 @@ export function useCrawlv3RoomSession() {
   const isHost = computed(() => myPlayer.value === 'player1')
   const isPerspectiveFlipped = computed(() => myPlayer.value === 'player2')
 
+  function normalizeGameSnapshot(game: Crawlv3Game): Crawlv3Game {
+    return {
+      ...game,
+      spectators: Array.isArray(game.spectators) ? game.spectators : [],
+      cardSelections:
+        game.cardSelections && typeof game.cardSelections === 'object'
+          ? Object.fromEntries(
+              Object.entries(game.cardSelections).map(([uid, selection]) => {
+                if (selection && typeof selection === 'object' && 'instanceId' in selection) {
+                  return [uid, selection]
+                }
+
+                return [uid, { instanceId: selection as string | null, visibleTo: [] }]
+              }),
+            )
+          : {},
+    }
+  }
+
   function subscribeToGame(id: string) {
     unsubscribeGame?.()
     unsubscribeGame = onSnapshot(doc(db, 'crawlv3_games', id), (snapshot) => {
       const data = snapshot.data() as Crawlv3Game | undefined
       if (!data) return
-      serverSnapshot.value = data
+      serverSnapshot.value = normalizeGameSnapshot(data)
 
       const snapshotVersion = data._version ?? 0
       pendingActions.value = pendingActions.value.filter(
@@ -114,7 +146,7 @@ export function useCrawlv3RoomSession() {
 
       gameId.value = data.id
       joinCode.value = String(data.code ?? joinCode.value)
-      serverSnapshot.value = data as Crawlv3Game
+      serverSnapshot.value = normalizeGameSnapshot(data as Crawlv3Game)
       router.replace({ name: 'crawlv3', params: { gameCode: joinCode.value } })
       subscribeToGame(data.id)
     } catch (err) {
@@ -162,6 +194,11 @@ export function useCrawlv3RoomSession() {
   }
 
   function enqueueAction(action: QueuedCrawlv3Action) {
+    if (!myPlayer.value && action.type !== 'select_card') {
+      error.value = 'Spectators cannot perform game actions'
+      return
+    }
+
     const fullAction = { ...action, actionId: uuid() } as Crawlv3Action
     const batch: PendingCrawlv3ActionBatch = {
       action: fullAction,
@@ -180,6 +217,7 @@ export function useCrawlv3RoomSession() {
     serverSnapshot.value = null
     gameId.value = null
     joinCode.value = ''
+    spectatorPerspective.value = 'both'
     router.replace({ name: 'crawlv3' })
   }
 
@@ -215,12 +253,16 @@ export function useCrawlv3RoomSession() {
     error,
     serverSnapshot,
     pendingActions,
+    currentUserUid,
     myPlayer,
+    mySpectator,
+    isSpectator,
     opponentPlayer,
     game,
     phase,
     isHost,
     isPerspectiveFlipped,
+    spectatorPerspective,
     createGame,
     joinGame,
     enqueueAction,

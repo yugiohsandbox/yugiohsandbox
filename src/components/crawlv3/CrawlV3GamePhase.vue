@@ -23,7 +23,15 @@ import { safeTrim, shuffleItems, withDefaultCatalogConfig } from '@/lib/crawlv3/
 import type { Crawlv3CardState, Crawlv3CatalogCard, Crawlv3Player } from '@/types/crawlv3'
 import type { Crawlv3PileZone, OpenCrawlv3PileState } from '@/types/crawlv3-ui'
 
-const { game, myPlayer, opponentPlayer, isPerspectiveFlipped, enqueueAction, resetRoomSession } = useCrawlv3Controller()
+const {
+  game,
+  currentUserUid,
+  myPlayer: actualPlayer,
+  isSpectator,
+  spectatorPerspective,
+  enqueueAction,
+  resetRoomSession,
+} = useCrawlv3Controller()
 
 const selectedCardId = ref<string | null>(null)
 const previewCardId = ref<string | null>(null)
@@ -42,6 +50,15 @@ let catalogRequestId = 0
 const { statusDefinitions } = useCrawlv3StatusDefinitions({
   config: computed(() => game.value?.config),
 })
+
+const revealAllCards = computed(() => isSpectator.value && spectatorPerspective.value === 'both')
+const myPlayer = computed<Crawlv3Player>(() => {
+  if (actualPlayer.value) return actualPlayer.value
+  return spectatorPerspective.value === 'player2' ? 'player2' : 'player1'
+})
+const opponentPlayer = computed<Crawlv3Player>(() => (myPlayer.value === 'player1' ? 'player2' : 'player1'))
+const isPerspectiveFlipped = computed(() => myPlayer.value === 'player2')
+const isPlayerInteractive = computed(() => !!actualPlayer.value)
 
 const catalogCardsById = computed(() => new Map(catalogCards.value.map((card) => [card.id, card])))
 
@@ -154,6 +171,8 @@ const {
 } = useCrawlv3Board({
   game: displayGame,
   myPlayer,
+  actorPlayer: actualPlayer,
+  revealAllCards,
   isPerspectiveFlipped,
   tableCards,
   myHandCards,
@@ -162,6 +181,7 @@ const {
   fieldCardWidth,
   selectedCardId,
   enqueueAction,
+  onSelectCard: publishSelectedCard,
 })
 
 const {
@@ -193,7 +213,7 @@ const {
   clearSelectedCardState,
 } = useCrawlv3SelectedCard({
   game: displayGame,
-  myPlayer,
+  myPlayer: actualPlayer,
   statusDefinitions,
   selectedCardId,
   statusCardId,
@@ -240,6 +260,43 @@ const selectedDamageTypeOptions = computed(() => [
   ...damageTypeOptions.value.map((option) => ({ value: option, label: option })),
 ])
 
+const selectedCard = computed(() => {
+  if (!displayGame.value || !selectedCardId.value) return null
+  return displayGame.value.cards[selectedCardId.value] ?? null
+})
+const selectedCardVisible = computed(() => (selectedCard.value ? canSeeCardDetails(selectedCard.value) : false))
+const selectedReadonlyShowFace = computed(() => !!selectedCard.value && selectedCardVisible.value)
+const selectedCardPreview = computed(() => {
+  if (!selectedCard.value) return null
+  return {
+    ...selectedCard.value,
+    rotated: false,
+  }
+})
+const selectedCardHighlightVisibleTo = computed<Crawlv3Player[]>(() => {
+  if (!selectedCard.value) return []
+  if (actualPlayer.value) {
+    return selectedCard.value.owner !== actualPlayer.value ? [selectedCard.value.owner] : []
+  }
+  if (!isSpectator.value) return []
+  if (spectatorPerspective.value === 'both') return ['player1', 'player2']
+  return [spectatorPerspective.value]
+})
+const otherSelectedCardIds = computed(() => {
+  const selections = displayGame.value?.cardSelections ?? {}
+  return Object.entries(selections)
+    .filter(
+      ([uid, selection]) =>
+        uid !== currentUserUid.value &&
+        !!selection.instanceId &&
+        (actualPlayer.value
+          ? selection.visibleTo.includes(actualPlayer.value)
+          : spectatorPerspective.value === 'both' ||
+            selection.visibleTo.includes(spectatorPerspective.value)),
+    )
+    .map(([, selection]) => selection.instanceId as string)
+})
+
 const fieldImageUrl = computed(() =>
   game.value ? withDefaultCatalogConfig(game.value.config).fieldImageUrl.trim() : '',
 )
@@ -255,7 +312,7 @@ const activePileCards = computed(() => {
     .filter((card): card is Crawlv3CardState => !!card)
 })
 
-const activePileInteractive = computed(() => !!openPile.value && openPile.value.owner === myPlayer.value)
+const activePileInteractive = computed(() => !!openPile.value && openPile.value.owner === actualPlayer.value)
 
 const activePileTitle = computed(() => {
   if (!game.value || !openPile.value) return ''
@@ -291,9 +348,22 @@ function clearTransientUi() {
   clearBoardTransientUi()
 }
 
+function publishSelectedCard(instanceId: string | null) {
+  enqueueAction({
+    type: 'select_card',
+    instanceId,
+    visibleTo: instanceId ? selectedCardHighlightVisibleTo.value : [],
+  })
+}
+
+function clearPublishedSelectedCardState() {
+  clearSelectedCardState()
+  publishSelectedCard(null)
+}
+
 function leaveRoom() {
   previewCardId.value = null
-  clearSelectedCardState()
+  clearPublishedSelectedCardState()
   openPile.value = null
   shortcutsOpen.value = false
   rulesOpen.value = false
@@ -306,6 +376,7 @@ function completeGame() {
     type: 'complete_game',
   })
   selectedCardId.value = null
+  publishSelectedCard(null)
   statusCardId.value = null
   previewCardId.value = null
   openPile.value = null
@@ -321,7 +392,7 @@ function moveSelectedCardTo(zone: Crawlv3PileZone | 'table' | 'hand') {
 }
 
 function openPileViewer(owner: Crawlv3Player, zone: Crawlv3PileZone) {
-  if (owner !== myPlayer.value && (zone === 'discard' || zone === 'exhausted')) return
+  if (!revealAllCards.value && owner !== myPlayer.value && (zone === 'discard' || zone === 'exhausted')) return
   const cards = game.value ? getZoneCards(game.value.cards, zone, owner) : []
   openPile.value = {
     owner,
@@ -335,6 +406,8 @@ function pilePreviewImage(card: Crawlv3CardState | null) {
 }
 
 function startTopPileDrag(zone: Crawlv3PileZone, event: PointerEvent) {
+  if (!isPlayerInteractive.value) return
+
   if (zone === 'deck' && myTopDeckCard.value) {
     startCardDrag(myTopDeckCard.value, event)
   } else if (zone === 'extraDeck' && myTopExtraDeckCard.value) {
@@ -369,8 +442,15 @@ const buttonClasses = {
     'cursor-pointer rounded-full border border-orange-300/35 bg-orange-300/15 px-3 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-300/55 hover:bg-orange-300/25 disabled:cursor-not-allowed disabled:opacity-50',
 } as const
 
+const statInputClasses = {
+  editable:
+    'min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50',
+  readonly:
+    'pointer-events-none min-w-[7rem] flex-1 cursor-default select-none rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 caret-transparent outline-none focus:border-white/10 focus:ring-0',
+} as const
+
 function isOwnCardInteractive(card: Crawlv3CardState) {
-  return card.owner === myPlayer.value
+  return card.owner === actualPlayer.value
 }
 
 function isKeyboardShortcutTarget(target: EventTarget | null) {
@@ -392,12 +472,12 @@ function clearHitPointShortcutTimer() {
 }
 
 function commitHitPointShortcutBuffer() {
-  if (!myPlayer.value || !hitPointShortcutBuffer) return
+  if (!actualPlayer.value || !hitPointShortcutBuffer) return
   const amount = Number(hitPointShortcutBuffer)
   hitPointShortcutBuffer = ''
   clearHitPointShortcutTimer()
   if (!Number.isFinite(amount) || amount <= 0) return
-  adjustLifePoints(myPlayer.value, amount * hitPointShortcutSign)
+  adjustLifePoints(actualPlayer.value, amount * hitPointShortcutSign)
 }
 
 function queueHitPointShortcutDigit(digit: string, sign: 1 | -1) {
@@ -426,6 +506,8 @@ function handleKeyboardShortcut(event: KeyboardEvent) {
     return
   }
 
+  if (!isPlayerInteractive.value) return
+
   const digit = getKeyboardDigit(event)
   if (digit !== null) {
     event.preventDefault()
@@ -442,13 +524,13 @@ function handleKeyboardShortcut(event: KeyboardEvent) {
 
   if (key === 'a') {
     event.preventDefault()
-    if (myPlayer.value) adjustActionPoints(myPlayer.value, event.shiftKey ? 1 : -1)
+    if (actualPlayer.value) adjustActionPoints(actualPlayer.value, event.shiftKey ? 1 : -1)
     return
   }
 
   if (key === 'r') {
     event.preventDefault()
-    if (myPlayer.value) resetActionPoints(myPlayer.value)
+    if (actualPlayer.value) resetActionPoints(actualPlayer.value)
     return
   }
 
@@ -502,6 +584,14 @@ watch(
   },
 )
 
+watch(
+  () => (currentUserUid.value && displayGame.value ? displayGame.value.cardSelections?.[currentUserUid.value] : null),
+  (selection) => {
+    selectedCardId.value = selection?.instanceId ?? null
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeyboardShortcut)
 })
@@ -539,6 +629,7 @@ onBeforeUnmount(() => {
               Shortcuts
             </button>
             <button
+              v-if="isPlayerInteractive"
               type="button"
               class="cursor-pointer rounded-full border border-amber-300/35 bg-amber-300/12 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/50 hover:bg-amber-300/18"
               @click="completeGame"
@@ -569,7 +660,8 @@ onBeforeUnmount(() => {
                       v-model="statDrafts[opponentPlayer].lifePoints"
                       type="number"
                       readonly
-                      class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 outline-none"
+                      tabindex="-1"
+                      :class="statInputClasses.readonly"
                     />
                   </div>
                 </div>
@@ -580,7 +672,8 @@ onBeforeUnmount(() => {
                       v-model="statDrafts[opponentPlayer].actionPoints"
                       type="number"
                       readonly
-                      class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-white/75 outline-none"
+                      tabindex="-1"
+                      :class="statInputClasses.readonly"
                     />
                   </div>
                 </div>
@@ -591,17 +684,22 @@ onBeforeUnmount(() => {
               class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
               data-crawlv3-drop-zone="discard"
               :data-crawlv3-owner="opponentPlayer"
+              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'discard')"
             >
               <div>
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Spent</p>
               </div>
 
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg">
+                <div
+                  class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg"
+                  @dragstart.prevent
+                >
                   <img
                     v-if="opponentDiscardCards.length"
                     :src="cardBackImage"
                     alt="Opponent spent pile"
+                    draggable="false"
                     class="h-full w-full object-cover"
                   />
                   <div
@@ -621,17 +719,22 @@ onBeforeUnmount(() => {
               class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
               data-crawlv3-drop-zone="exhausted"
               :data-crawlv3-owner="opponentPlayer"
+              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'exhausted')"
             >
               <div>
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Exhausted</p>
               </div>
 
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg">
+                <div
+                  class="relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg"
+                  @dragstart.prevent
+                >
                   <img
                     v-if="opponentExhaustedCards.length"
                     :src="cardBackImage"
                     alt="Opponent exhausted pile"
+                    draggable="false"
                     class="h-full w-full object-cover"
                   />
                   <div
@@ -651,12 +754,13 @@ onBeforeUnmount(() => {
               class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
               data-crawlv3-drop-zone="deck"
               :data-crawlv3-owner="opponentPlayer"
+              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'deck')"
             >
               <div>
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Draw</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20">
+                <div class="relative h-28 w-20" @dragstart.prevent>
                   <div
                     v-if="!opponentDeckCards.length"
                     class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
@@ -666,6 +770,7 @@ onBeforeUnmount(() => {
                     :key="depth"
                     :src="cardBackImage"
                     alt="Draw pile"
+                    draggable="false"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -680,12 +785,13 @@ onBeforeUnmount(() => {
               class="rounded-[1.4rem] border border-white/10 bg-neutral-950/70 p-4 shadow-2xl backdrop-blur-sm"
               data-crawlv3-drop-zone="extraDeck"
               :data-crawlv3-owner="opponentPlayer"
+              @contextmenu.prevent="revealAllCards && openPileViewer(opponentPlayer, 'extraDeck')"
             >
               <div>
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Opponent Extra Deck</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20">
+                <div class="relative h-28 w-20" @dragstart.prevent>
                   <div
                     v-if="!opponentExtraDeckCards.length"
                     class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
@@ -695,6 +801,7 @@ onBeforeUnmount(() => {
                     :key="depth"
                     :src="cardBackImage"
                     alt="Extra deck pile"
+                    draggable="false"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -720,7 +827,9 @@ onBeforeUnmount(() => {
               :owner="opponentPlayer"
               empty-label="Opponent hand zone"
               zone-class="relative h-[clamp(10.5rem,15vh,13rem)] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(135deg,rgba(61,99,114,0.15),rgba(20,22,33,0.65))] ring-1 ring-white/5"
+              :selected-card-id="selectedCardId"
               :status-labels="statusLabels"
+              :other-selected-card-ids="otherSelectedCardIds"
               :card-position-style="cardPositionStyle"
               :get-card-render-face="getCardRenderFace"
               :is-card-interactive="() => false"
@@ -730,7 +839,7 @@ onBeforeUnmount(() => {
               @card-tooltip-clear="clearTooltip"
               @decrement-status="decrementCardStatus"
               @increment-status="incrementCardStatus"
-              @zone-pointerdown="clearSelectedCardState"
+              @zone-pointerdown="clearPublishedSelectedCardState"
             />
           </div>
         </section>
@@ -762,6 +871,7 @@ onBeforeUnmount(() => {
             match-field-image-aspect
             :selected-card-id="selectedCardId"
             :status-labels="statusLabels"
+            :other-selected-card-ids="otherSelectedCardIds"
             show-grid
             :card-position-style="cardPositionStyle"
             :get-card-render-face="getCardRenderFace"
@@ -773,7 +883,7 @@ onBeforeUnmount(() => {
             @decrement-status="decrementCardStatus"
             @increment-status="incrementCardStatus"
             @zone-resize="updateFieldCardWidth"
-            @zone-pointerdown="clearSelectedCardState"
+            @zone-pointerdown="clearPublishedSelectedCardState"
           />
         </section>
 
@@ -795,6 +905,7 @@ onBeforeUnmount(() => {
               zone-class="relative h-[clamp(10.5rem,15vh,13rem)] overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(135deg,rgba(54,79,55,0.15),rgba(20,22,33,0.65))] ring-1 ring-white/5"
               :selected-card-id="selectedCardId"
               :status-labels="statusLabels"
+              :other-selected-card-ids="otherSelectedCardIds"
               :card-position-style="cardPositionStyle"
               :get-card-render-face="getCardRenderFace"
               :is-card-interactive="isOwnCardInteractive"
@@ -804,7 +915,7 @@ onBeforeUnmount(() => {
               @card-tooltip-clear="clearTooltip"
               @decrement-status="decrementCardStatus"
               @increment-status="incrementCardStatus"
-              @zone-pointerdown="clearSelectedCardState"
+              @zone-pointerdown="clearPublishedSelectedCardState"
             />
           </div>
 
@@ -822,20 +933,42 @@ onBeforeUnmount(() => {
                     <input
                       v-model="statDrafts[myPlayer].lifePoints"
                       type="number"
-                      class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                      @keyup.enter="savePlayerStats(myPlayer)"
-                      @blur="savePlayerStats(myPlayer)"
+                      :readonly="!isPlayerInteractive"
+                      :tabindex="isPlayerInteractive ? undefined : -1"
+                      :class="isPlayerInteractive ? statInputClasses.editable : statInputClasses.readonly"
+                      @keyup.enter="isPlayerInteractive && savePlayerStats(myPlayer)"
+                      @blur="isPlayerInteractive && savePlayerStats(myPlayer)"
                     />
-                    <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(myPlayer, -5)">
+                    <button
+                      v-if="isPlayerInteractive"
+                      type="button"
+                      :class="buttonClasses.neutral"
+                      @click="adjustLifePoints(myPlayer, -5)"
+                    >
                       -5
                     </button>
-                    <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(myPlayer, -1)">
+                    <button
+                      v-if="isPlayerInteractive"
+                      type="button"
+                      :class="buttonClasses.neutral"
+                      @click="adjustLifePoints(myPlayer, -1)"
+                    >
                       -1
                     </button>
-                    <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(myPlayer, 1)">
+                    <button
+                      v-if="isPlayerInteractive"
+                      type="button"
+                      :class="buttonClasses.neutral"
+                      @click="adjustLifePoints(myPlayer, 1)"
+                    >
                       +1
                     </button>
-                    <button type="button" :class="buttonClasses.neutral" @click="adjustLifePoints(myPlayer, 5)">
+                    <button
+                      v-if="isPlayerInteractive"
+                      type="button"
+                      :class="buttonClasses.neutral"
+                      @click="adjustLifePoints(myPlayer, 5)"
+                    >
                       +5
                     </button>
                   </div>
@@ -846,11 +979,14 @@ onBeforeUnmount(() => {
                     <input
                       v-model="statDrafts[myPlayer].actionPoints"
                       type="number"
-                      class="min-w-[7rem] flex-1 rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
-                      @keyup.enter="savePlayerStats(myPlayer)"
-                      @blur="savePlayerStats(myPlayer)"
+                      :readonly="!isPlayerInteractive"
+                      :tabindex="isPlayerInteractive ? undefined : -1"
+                      :class="isPlayerInteractive ? statInputClasses.editable : statInputClasses.readonly"
+                      @keyup.enter="isPlayerInteractive && savePlayerStats(myPlayer)"
+                      @blur="isPlayerInteractive && savePlayerStats(myPlayer)"
                     />
                     <button
+                      v-if="isPlayerInteractive"
                       type="button"
                       class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="adjustActionPoints(myPlayer, -1)"
@@ -858,6 +994,7 @@ onBeforeUnmount(() => {
                       -1
                     </button>
                     <button
+                      v-if="isPlayerInteractive"
                       type="button"
                       class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="adjustActionPoints(myPlayer, 1)"
@@ -865,6 +1002,7 @@ onBeforeUnmount(() => {
                       +1
                     </button>
                     <button
+                      v-if="isPlayerInteractive"
                       type="button"
                       class="cursor-pointer rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
                       @click="resetActionPoints(myPlayer)"
@@ -888,13 +1026,18 @@ onBeforeUnmount(() => {
 
               <div class="mt-4 flex items-center gap-4">
                 <div
-                  class="relative h-28 w-20 cursor-pointer overflow-hidden border border-white/10 bg-transparent shadow-lg"
-                  @pointerdown="startTopPileDrag('discard', $event)"
+                  :class="[
+                    'relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg',
+                    isPlayerInteractive ? 'cursor-pointer' : 'cursor-default',
+                  ]"
+                  @pointerdown="isPlayerInteractive && startTopPileDrag('discard', $event)"
+                  @dragstart.prevent
                 >
                   <img
                     v-if="pilePreviewImage(myTopDiscardCard)"
                     :src="pilePreviewImage(myTopDiscardCard)"
                     alt="Your spent pile"
+                    draggable="false"
                     class="h-full w-full object-cover"
                   />
                   <div
@@ -909,11 +1052,11 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <div class="mt-4">
+              <div v-if="isPlayerInteractive" class="mt-4">
                 <button
                   type="button"
                   :class="buttonClasses.deck"
-                  :disabled="!myDiscardCards.length"
+                  :disabled="!isPlayerInteractive || !myDiscardCards.length"
                   @click="shuffleDiscardIntoDeck"
                 >
                   Shuffle Into Draw
@@ -931,7 +1074,11 @@ onBeforeUnmount(() => {
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Draw</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20 cursor-pointer" @pointerdown="startTopPileDrag('deck', $event)">
+                <div
+                  :class="['relative h-28 w-20', isPlayerInteractive ? 'cursor-pointer' : 'cursor-default']"
+                  @pointerdown="isPlayerInteractive && startTopPileDrag('deck', $event)"
+                  @dragstart.prevent
+                >
                   <div
                     v-if="!myDeckCards.length"
                     class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
@@ -941,6 +1088,7 @@ onBeforeUnmount(() => {
                     :key="depth"
                     :src="cardBackImage"
                     alt="Draw pile"
+                    draggable="false"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -950,11 +1098,19 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <div class="mt-4 flex flex-wrap gap-2">
-                <button type="button" :class="buttonClasses.hand" @click="drawTopDeckCard">Draw Card</button>
+              <div v-if="isPlayerInteractive" class="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  :class="buttonClasses.hand"
+                  :disabled="!isPlayerInteractive"
+                  @click="drawTopDeckCard"
+                >
+                  Draw Card
+                </button>
                 <button
                   type="button"
                   class="cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                  :disabled="!isPlayerInteractive"
                   @click="shuffleDeck"
                 >
                   Shuffle
@@ -974,13 +1130,18 @@ onBeforeUnmount(() => {
 
               <div class="mt-4 flex items-center gap-4">
                 <div
-                  class="relative h-28 w-20 cursor-pointer overflow-hidden border border-white/10 bg-transparent shadow-lg"
-                  @pointerdown="startTopPileDrag('exhausted', $event)"
+                  :class="[
+                    'relative h-28 w-20 overflow-hidden border border-white/10 bg-transparent shadow-lg',
+                    isPlayerInteractive ? 'cursor-pointer' : 'cursor-default',
+                  ]"
+                  @pointerdown="isPlayerInteractive && startTopPileDrag('exhausted', $event)"
+                  @dragstart.prevent
                 >
                   <img
                     v-if="pilePreviewImage(myTopExhaustedCard)"
                     :src="pilePreviewImage(myTopExhaustedCard)"
                     alt="Your exhausted pile"
+                    draggable="false"
                     class="h-full w-full object-cover"
                   />
                   <div
@@ -1006,7 +1167,11 @@ onBeforeUnmount(() => {
                 <p class="text-xs font-semibold tracking-[0.35em] text-white/45 uppercase">Your Extra Deck</p>
               </div>
               <div class="mt-4 flex items-center gap-4">
-                <div class="relative h-28 w-20 cursor-pointer" @pointerdown="startTopPileDrag('extraDeck', $event)">
+                <div
+                  :class="['relative h-28 w-20', isPlayerInteractive ? 'cursor-pointer' : 'cursor-default']"
+                  @pointerdown="isPlayerInteractive && startTopPileDrag('extraDeck', $event)"
+                  @dragstart.prevent
+                >
                   <div
                     v-if="!myExtraDeckCards.length"
                     class="absolute inset-0 border border-dashed border-white/10 bg-white/5"
@@ -1016,6 +1181,7 @@ onBeforeUnmount(() => {
                     :key="depth"
                     :src="cardBackImage"
                     alt="Extra deck pile"
+                    draggable="false"
                     class="absolute inset-0 h-full w-full border border-white/10 object-cover shadow-lg"
                     :style="{ transform: `translate(${(depth - 1) * 5}px, ${(depth - 1) * 3}px)` }"
                   />
@@ -1219,8 +1385,119 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
+        <template v-else-if="selectedCard">
+          <div class="mt-4 flex justify-center">
+            <CrawlV3Card
+              :card="selectedCardPreview ?? selectedCard"
+              :show-face="selectedReadonlyShowFace"
+              :interactive="false"
+              :status-labels="statusLabels"
+              @contextmenu.prevent="previewCardId = selectedCard.instanceId"
+              @mouseenter.stop
+              @mousemove.stop
+              @mouseleave.stop
+            />
+          </div>
+
+          <h2 class="mt-4 text-2xl font-semibold">
+            {{ selectedReadonlyShowFace ? selectedCard.title : 'Face-down card' }}
+          </h2>
+          <p class="mt-1 text-sm text-white/55">
+            {{ formatZoneLabel(selectedCard.zone) }} Zone
+            <template v-if="selectedReadonlyShowFace">
+              | {{ formatFaceLabel(selectedCard.faceUp) }} | {{ formatPositionLabel(selectedCard.rotated) }}
+            </template>
+          </p>
+
+          <div
+            v-if="
+              selectedReadonlyShowFace &&
+              (shouldShowCardStat(selectedCard, 'atk') || shouldShowCardStat(selectedCard, 'def'))
+            "
+            class="mt-4 grid gap-3 sm:grid-cols-2"
+          >
+            <label v-if="shouldShowCardStat(selectedCard, 'atk')" class="block">
+              <span class="mb-2 block text-sm text-white/60">ATK</span>
+              <input
+                :value="selectedCard.atk"
+                type="text"
+                disabled
+                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
+              />
+            </label>
+            <label v-if="shouldShowCardStat(selectedCard, 'def')" class="block">
+              <span class="mb-2 block text-sm text-white/60">DEF</span>
+              <input
+                :value="selectedCard.def"
+                type="text"
+                disabled
+                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
+              />
+            </label>
+          </div>
+
+          <div v-if="selectedReadonlyShowFace" class="mt-4 grid gap-3 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/60">Race</span>
+              <input
+                :value="selectedCard.race || 'No race'"
+                type="text"
+                disabled
+                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
+              />
+            </label>
+            <label class="block">
+              <span class="mb-2 block text-sm text-white/60">Type</span>
+              <input
+                :value="selectedCard.damageType || 'No type'"
+                type="text"
+                disabled
+                class="w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75"
+              />
+            </label>
+          </div>
+
+          <div v-if="selectedReadonlyShowFace" class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Description</p>
+            <p class="mt-3 text-sm whitespace-pre-wrap text-white/78">
+              {{ selectedCard.description || 'No description provided.' }}
+            </p>
+          </div>
+
+          <div
+            v-if="
+              selectedReadonlyShowFace &&
+              (getCardStatusEntries(selectedCard, 'buff').length ||
+                getCardStatusEntries(selectedCard, 'debuff').length)
+            "
+            class="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4"
+          >
+            <p class="text-xs font-semibold tracking-[0.3em] text-white/45 uppercase">Statuses</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span
+                v-for="status in getCardStatusEntries(selectedCard, 'buff')"
+                :key="`readonly-buff-${status.id}`"
+                class="rounded-full bg-emerald-400/85 px-2.5 py-1 text-xs font-semibold text-emerald-950"
+              >
+                {{ status.name }} {{ status.value }}
+              </span>
+              <span
+                v-for="status in getCardStatusEntries(selectedCard, 'debuff')"
+                :key="`readonly-debuff-${status.id}`"
+                class="rounded-full bg-rose-400/85 px-2.5 py-1 text-xs font-semibold text-rose-950"
+              >
+                {{ status.name }} {{ status.value }}
+              </span>
+            </div>
+          </div>
+        </template>
+
         <div v-else class="mt-6 rounded-[1.25rem] border border-white/10 bg-white/5 p-5 text-sm text-white/55">
-          Select one of your cards or drag it around the sandbox to edit it here.
+          {{
+            isSpectator
+              ? 'Right-click cards or piles to inspect them. Spectators cannot move or edit cards.'
+              : 'Select one of your cards or drag it around the sandbox to edit it here.'
+          }}
         </div>
       </aside>
     </div>

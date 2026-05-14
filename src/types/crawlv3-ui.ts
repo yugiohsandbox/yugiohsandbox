@@ -9,6 +9,7 @@ export type QueuedCrawlv3Action =
   | Omit<Extract<Crawlv3Action, { type: 'update_config' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'select_deck' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'set_ready' }>, 'actionId'>
+  | Omit<Extract<Crawlv3Action, { type: 'select_card' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'move_card' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'patch_card' }>, 'actionId'>
   | Omit<Extract<Crawlv3Action, { type: 'set_player_stats' }>, 'actionId'>
@@ -17,6 +18,8 @@ export type QueuedCrawlv3Action =
   | Omit<Extract<Crawlv3Action, { type: 'complete_game' }>, 'actionId'>
 
 export type Crawlv3PileZone = Extract<Crawlv3Zone, 'deck' | 'extraDeck' | 'discard' | 'exhausted'>
+
+export type Crawlv3SpectatorPerspective = Crawlv3Player | 'both'
 
 export type Crawlv3DragState = {
   instanceId: string
