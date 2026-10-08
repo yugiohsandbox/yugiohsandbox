@@ -151,7 +151,7 @@ const ruleSections: RuleSection[] = [
         title: 'Game Setup',
         items: [
           'Cards start in your Draw or Extra Deck, depending on their card type.',
-          'Each player starts the game with 40 Hit Points.',
+          'Each player starts with the default Hit Points set in the room config (60 by default).',
           "Your goal is to reduce your opponent's Hit Points to 0.",
         ],
       },

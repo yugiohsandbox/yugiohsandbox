@@ -81,7 +81,11 @@ export function normalizeConfigDefaults(config: Crawlv3CatalogConfig): Crawlv3Ca
     fieldImageUrl: config.fieldImageUrl ?? defaults.fieldImageUrl,
     extraDeckCategoriesText: config.extraDeckCategoriesText ?? 'Fusion Unit, Ritual Unit',
     faceDownCategoriesText: config.faceDownCategoriesText ?? 'Trap',
-    defaultLifePoints: Number.isFinite(config.defaultLifePoints) ? Number(config.defaultLifePoints) : 8000,
+    excludedDraftCategoriesText: config.excludedDraftCategoriesText ?? defaults.excludedDraftCategoriesText,
+    combineRitualFusionDraft: config.combineRitualFusionDraft ?? defaults.combineRitualFusionDraft,
+    defaultLifePoints: Number.isFinite(config.defaultLifePoints)
+      ? Number(config.defaultLifePoints)
+      : defaults.defaultLifePoints,
     defaultActionPoints: Number.isFinite(config.defaultActionPoints) ? Number(config.defaultActionPoints) : 0,
   }
 }

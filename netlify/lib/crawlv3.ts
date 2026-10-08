@@ -37,6 +37,8 @@ export interface Crawlv3CatalogConfig {
   statusHeaders: Crawlv3StatusHeaders
   extraDeckCategoriesText: string
   faceDownCategoriesText: string
+  excludedDraftCategoriesText: string
+  combineRitualFusionDraft: boolean
   defaultLifePoints: number
   defaultActionPoints: number
 }
@@ -249,7 +251,9 @@ export function createDefaultCrawlv3Config(): Crawlv3CatalogConfig {
     },
     extraDeckCategoriesText: 'Fusion Unit, Ritual Unit',
     faceDownCategoriesText: 'Trap',
-    defaultLifePoints: 8000,
+    excludedDraftCategoriesText: 'Basic Unit',
+    combineRitualFusionDraft: true,
+    defaultLifePoints: 60,
     defaultActionPoints: 0,
   }
 }
@@ -283,6 +287,11 @@ export function sanitizeCrawlv3Config(config: Partial<Crawlv3CatalogConfig> | un
     },
     extraDeckCategoriesText: config?.extraDeckCategoriesText?.trim() ?? fallback.extraDeckCategoriesText,
     faceDownCategoriesText: config?.faceDownCategoriesText?.trim() ?? fallback.faceDownCategoriesText,
+    excludedDraftCategoriesText: config?.excludedDraftCategoriesText?.trim() ?? fallback.excludedDraftCategoriesText,
+    combineRitualFusionDraft:
+      typeof config?.combineRitualFusionDraft === 'boolean'
+        ? config.combineRitualFusionDraft
+        : fallback.combineRitualFusionDraft,
     defaultLifePoints: Number.isFinite(config?.defaultLifePoints)
       ? Number(config?.defaultLifePoints)
       : fallback.defaultLifePoints,

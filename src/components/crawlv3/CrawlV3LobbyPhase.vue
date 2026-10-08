@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import CrawlV3CatalogConfigPanel from '@/components/crawlv3/CrawlV3CatalogConfigPanel.vue'
 import CrawlV3CardPreviewModal from '@/components/crawlv3/CrawlV3CardPreviewModal.vue'
@@ -62,6 +62,38 @@ const catalogSortField = ref<'default' | 'cost' | 'atk' | 'def'>('default')
 const catalogSortDirection = ref<'asc' | 'desc'>('asc')
 const localSelectionIds = ref<string[]>([])
 const configExpanded = ref(false)
+const clearSelectionConfirmationOpen = ref(false)
+const clearSelectionDialog = ref<HTMLElement | null>(null)
+let clearSelectionTrigger: HTMLElement | null = null
+
+watch(clearSelectionConfirmationOpen, async (open) => {
+  if (open) {
+    clearSelectionTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    await nextTick()
+    clearSelectionDialog.value?.querySelector<HTMLButtonElement>('button')?.focus()
+  } else {
+    clearSelectionTrigger?.focus()
+  }
+})
+
+function handleClearSelectionDialogKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    clearSelectionConfirmationOpen.value = false
+  }
+  if (event.key !== 'Tab') return
+  const buttons = clearSelectionDialog.value?.querySelectorAll<HTMLButtonElement>('button')
+  if (!buttons?.length) return
+  const first = buttons[0]
+  const last = buttons[buttons.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last?.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first?.focus()
+  }
+}
 const draftMode = ref<'catalog' | 'categories' | 'choices'>('catalog')
 const draftCategory = ref('')
 const draftChoices = ref<Crawlv3CatalogCard[]>([])
@@ -173,10 +205,30 @@ const categorySelectOptions = computed(() => [
   { value: '', label: 'Any' },
   ...categoryFilterOptions.value.map((option) => ({ value: option, label: option })),
 ])
+function getCardDraftCategories(card: Crawlv3CatalogCard) {
+  const excluded = splitCatalogValues(game.value?.config.excludedDraftCategoriesText ?? 'Basic Unit').map((category) =>
+    category.toLowerCase(),
+  )
+  return [
+    ...new Set(
+      splitCatalogValues(card.category)
+        .filter((category) => !excluded.includes(category.toLowerCase()))
+        .map((category) => {
+          if (
+            (game.value?.config.combineRitualFusionDraft ?? true) &&
+            ['ritual unit', 'fusion unit'].includes(category.toLowerCase())
+          )
+            return 'Ritual / Fusion Unit'
+          return category
+        }),
+    ),
+  ]
+}
+
 const draftCategoryRows = computed(() =>
-  categoryFilterOptions.value.map((category) => ({
+  getUniqueCatalogOptions(getCardDraftCategories).map((category) => ({
     category,
-    count: catalogCards.value.filter((card) => splitCatalogValues(card.category).includes(category)).length,
+    count: getDraftCardsForCategory(category).length,
   })),
 )
 const selectedCategoryRows = computed(() =>
@@ -307,6 +359,7 @@ function resetDraftCardsState() {
 }
 
 function resetLobbyCatalogState() {
+  clearSelectionConfirmationOpen.value = false
   localSelectionIds.value = []
   configExpanded.value = false
   resetDraftCardsState()
@@ -373,6 +426,12 @@ function refreshSavedDeckSelectionFromCatalog() {
 
 function clearCatalogSelection() {
   if (!canEditDeckSelection.value) return
+  clearSelectionConfirmationOpen.value = true
+}
+
+function confirmClearCatalogSelection() {
+  clearSelectionConfirmationOpen.value = false
+  if (!canEditDeckSelection.value) return
   saveDeckSelection([])
 }
 
@@ -430,7 +489,7 @@ function finishDraftCards() {
 }
 
 function getDraftCardsForCategory(category: string) {
-  return catalogCards.value.filter((card) => splitCatalogValues(card.category).includes(category))
+  return catalogCards.value.filter((card) => getCardDraftCategories(card).includes(category))
 }
 
 function getRandomDraftChoices(cards: Crawlv3CatalogCard[]) {
@@ -885,6 +944,44 @@ watch(
         @tooltip-clear="clearCatalogTooltip"
       />
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="clearSelectionConfirmationOpen"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        @click.self="clearSelectionConfirmationOpen = false"
+        @keydown="handleClearSelectionDialogKeydown"
+      >
+        <section
+          ref="clearSelectionDialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-selection-title"
+          class="w-full max-w-md rounded-3xl border border-white/15 bg-neutral-950 p-6 text-white shadow-2xl"
+        >
+          <h2 id="clear-selection-title" class="text-xl font-semibold">Clear your selection?</h2>
+          <p class="mt-3 text-white/65">
+            This will remove all {{ activeSelectionIds.length }} selected cards from your deck.
+          </p>
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              class="cursor-pointer rounded-full border border-white/20 px-4 py-2"
+              @click="clearSelectionConfirmationOpen = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="cursor-pointer rounded-full bg-rose-400 px-4 py-2 font-semibold text-rose-950"
+              @click="confirmClearCatalogSelection"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
 
     <CrawlV3CatalogTooltip :card="catalogTooltipCard" :point="catalogTooltipPoint" />
 

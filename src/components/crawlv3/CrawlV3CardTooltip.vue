@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { formatDisplayValue, getCardTags, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import {
+  getCardStatColor,
+  formatDisplayValue,
+  getCardTags,
+  hasDisplayValue,
+  shouldShowCardStat,
+} from '@/lib/crawlv3/card-display'
 import type { Crawlv3CardState, Crawlv3StatusType } from '@/types/crawlv3'
 
 type CardStatusEntry = {
@@ -46,10 +52,16 @@ const tooltipStyle = computed(() => {
           >Cost <span class="text-white">{{ card.cost }}</span></span
         >
         <span v-if="shouldShowCardStat(card, 'atk')"
-          >ATK <span class="text-base font-bold text-white">{{ formatDisplayValue(card.atk) }}</span></span
+          >ATK
+          <span class="text-base font-bold" :class="getCardStatColor(card, 'atk')">{{
+            formatDisplayValue(card.atk)
+          }}</span></span
         >
         <span v-if="shouldShowCardStat(card, 'def')"
-          >DEF <span class="text-base font-bold text-white">{{ formatDisplayValue(card.def) }}</span></span
+          >DEF
+          <span class="text-base font-bold" :class="getCardStatColor(card, 'def')">{{
+            formatDisplayValue(card.def)
+          }}</span></span
         >
       </div>
       <p v-if="getCardTags(card)" class="mt-1 text-white/55">{{ getCardTags(card) }}</p>

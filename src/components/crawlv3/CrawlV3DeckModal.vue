@@ -4,7 +4,13 @@ import { computed, ref } from 'vue'
 import CrawlV3Card from '@/components/crawlv3/CrawlV3Card.vue'
 import CrawlV3CardPreviewModal from '@/components/crawlv3/CrawlV3CardPreviewModal.vue'
 import type { Crawlv3CardState } from '@/types/crawlv3'
-import { formatDisplayValue, getCardTags, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import {
+  getCardStatColor,
+  formatDisplayValue,
+  getCardTags,
+  hasDisplayValue,
+  shouldShowCardStat,
+} from '@/lib/crawlv3/card-display'
 
 const props = defineProps<{
   title: string
@@ -207,10 +213,16 @@ const buttonClasses = {
             >Cost <span class="text-white">{{ tooltipCard.cost }}</span></span
           >
           <span v-if="shouldShowCardStat(tooltipCard, 'atk')"
-            >ATK <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.atk) }}</span></span
+            >ATK
+            <span class="text-base font-bold" :class="getCardStatColor(tooltipCard, 'atk')">{{
+              formatDisplayValue(tooltipCard.atk)
+            }}</span></span
           >
           <span v-if="shouldShowCardStat(tooltipCard, 'def')"
-            >DEF <span class="text-base font-bold text-white">{{ formatDisplayValue(tooltipCard.def) }}</span></span
+            >DEF
+            <span class="text-base font-bold" :class="getCardStatColor(tooltipCard, 'def')">{{
+              formatDisplayValue(tooltipCard.def)
+            }}</span></span
           >
         </div>
         <p v-if="getCardTags(tooltipCard)" class="mt-1 text-white/55">{{ getCardTags(tooltipCard) }}</p>

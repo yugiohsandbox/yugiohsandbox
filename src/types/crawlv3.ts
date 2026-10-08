@@ -34,6 +34,8 @@ export interface Crawlv3CatalogConfig {
   statusHeaders: Crawlv3StatusHeaders
   extraDeckCategoriesText: string
   faceDownCategoriesText: string
+  excludedDraftCategoriesText: string
+  combineRitualFusionDraft: boolean
   defaultLifePoints: number
   defaultActionPoints: number
 }

@@ -197,6 +197,25 @@ const statusHeaderFields: [keyof Crawlv3CatalogConfig['statusHeaders'], string][
       </div>
 
       <label class="block">
+        <span class="mb-2 block text-sm text-white/65">Excluded draft categories</span>
+        <input
+          v-model="config.excludedDraftCategoriesText"
+          :readonly="!isHost"
+          type="text"
+          placeholder="Basic Unit"
+          class="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition outline-none read-only:cursor-default read-only:opacity-80 focus:border-amber-300/50"
+        />
+        <span class="mt-2 block text-xs text-white/45"
+          >Comma-separated categories to hide from drafting. Leave empty to show all.</span
+        >
+      </label>
+
+      <label class="flex items-center gap-3 text-sm text-white/80">
+        <input v-model="config.combineRitualFusionDraft" :disabled="!isHost" type="checkbox" class="accent-amber-300" />
+        Combine Ritual Unit and Fusion Unit into one draft category
+      </label>
+
+      <label class="block">
         <span class="mb-2 block text-sm text-white/65">Extra deck categories</span>
         <input
           v-model="config.extraDeckCategoriesText"

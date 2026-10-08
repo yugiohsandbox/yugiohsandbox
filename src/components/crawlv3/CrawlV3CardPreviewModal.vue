@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Crawlv3CardState } from '@/types/crawlv3'
-import { formatDisplayValue, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import { getCardStatColor, formatDisplayValue, hasDisplayValue, shouldShowCardStat } from '@/lib/crawlv3/card-display'
 
 import cardBackImage from '@/assets/images/cards/cardback.png'
 
@@ -56,11 +56,15 @@ const emit = defineEmits<{
               </div>
               <div v-if="shouldShowCardStat(card, 'atk')" class="min-w-24 flex-auto rounded-xl bg-white/5 p-2.5">
                 <p class="text-xs text-white/50 uppercase">ATK</p>
-                <p class="mt-1 text-base font-semibold wrap-break-word">{{ formatDisplayValue(card.atk) }}</p>
+                <p class="mt-1 text-base font-semibold wrap-break-word" :class="getCardStatColor(card, 'atk')">
+                  {{ formatDisplayValue(card.atk) }}
+                </p>
               </div>
               <div v-if="shouldShowCardStat(card, 'def')" class="min-w-24 flex-auto rounded-xl bg-white/5 p-2.5">
                 <p class="text-xs text-white/50 uppercase">DEF</p>
-                <p class="mt-1 text-base font-semibold wrap-break-word">{{ formatDisplayValue(card.def) }}</p>
+                <p class="mt-1 text-base font-semibold wrap-break-word" :class="getCardStatColor(card, 'def')">
+                  {{ formatDisplayValue(card.def) }}
+                </p>
               </div>
             </div>
           </div>

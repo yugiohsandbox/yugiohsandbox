@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatDisplayValue, getCardStatColor } from '@/lib/crawlv3/card-display'
 
 import type { Crawlv3CardState } from '@/types/crawlv3'
 
@@ -46,6 +47,9 @@ function getSortedStatusEntries(record: Record<string, number>) {
 
 const buffEntries = computed(() => getSortedStatusEntries(props.card.buffs))
 const debuffEntries = computed(() => getSortedStatusEntries(props.card.debuffs))
+const changedStats = computed(() =>
+  (['atk', 'def'] as const).filter((stat) => getCardStatColor(props.card, stat) !== 'text-white'),
+)
 const cardStyle = computed(() => ({
   width: props.fillParent ? '100%' : 'var(--crawlv3-card-width, clamp(5.2rem, 8vw, 8.4rem))',
   transform: props.card.rotated ? 'rotate(90deg)' : undefined,
@@ -108,6 +112,14 @@ const cardStyle = computed(() => ({
         >
           {{ statusLabels[key] ?? key }} {{ value }}
         </button>
+      </div>
+      <div
+        v-if="changedStats.length"
+        class="absolute inset-x-0 bottom-0 flex justify-center gap-2 bg-black/90 p-1 text-[clamp(0.6rem,0.8vw,0.85rem)] font-bold"
+      >
+        <span v-for="stat in changedStats" :key="stat" :class="getCardStatColor(card, stat)">
+          {{ stat.toUpperCase() }} {{ formatDisplayValue(card[stat]) }}
+        </span>
       </div>
     </template>
 

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import CrawlV3Card from '@/components/crawlv3/CrawlV3Card.vue'
 import CrawlV3Select from '@/components/crawlv3/CrawlV3Select.vue'
-import { formatFaceLabel, formatPositionLabel, formatZoneLabel, shouldShowCardStat } from '@/lib/crawlv3/card-display'
+import {
+  getCardStatColor,
+  formatFaceLabel,
+  formatPositionLabel,
+  formatZoneLabel,
+  shouldShowCardStat,
+} from '@/lib/crawlv3/card-display'
 import type { Crawlv3CardState, Crawlv3Zone } from '@/types/crawlv3'
 import type { Crawlv3CardStatusEntry } from '@/types/crawlv3-ui'
 
@@ -57,7 +63,7 @@ const buttonClasses = {
 } as const
 
 const readonlyInputClass =
-  'w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 text-white/75 outline-none disabled:opacity-75'
+  'w-full cursor-default rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 outline-none disabled:opacity-75'
 </script>
 
 <template>
@@ -95,6 +101,7 @@ const readonlyInputClass =
           <span class="mb-2 block text-sm text-white/60">ATK</span>
           <input
             v-model="selectedAtk"
+            :class="getCardStatColor(selectedOwnCard, 'atk', selectedAtk)"
             type="text"
             class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
             @focus="focusedSelectedStat = 'atk'"
@@ -106,6 +113,7 @@ const readonlyInputClass =
           <span class="mb-2 block text-sm text-white/60">DEF</span>
           <input
             v-model="selectedDef"
+            :class="getCardStatColor(selectedOwnCard, 'def', selectedDef)"
             type="text"
             class="w-full rounded-[1rem] border border-white/10 bg-white/5 px-4 py-3 transition outline-none focus:border-amber-300/50"
             @focus="focusedSelectedStat = 'def'"
@@ -273,11 +281,21 @@ const readonlyInputClass =
       >
         <label v-if="shouldShowCardStat(selectedCard, 'atk')" class="block">
           <span class="mb-2 block text-sm text-white/60">ATK</span>
-          <input :value="selectedCard.atk" type="text" disabled :class="readonlyInputClass" />
+          <input
+            :value="selectedCard.atk"
+            type="text"
+            disabled
+            :class="[readonlyInputClass, getCardStatColor(selectedCard, 'atk')]"
+          />
         </label>
         <label v-if="shouldShowCardStat(selectedCard, 'def')" class="block">
           <span class="mb-2 block text-sm text-white/60">DEF</span>
-          <input :value="selectedCard.def" type="text" disabled :class="readonlyInputClass" />
+          <input
+            :value="selectedCard.def"
+            type="text"
+            disabled
+            :class="[readonlyInputClass, getCardStatColor(selectedCard, 'def')]"
+          />
         </label>
       </div>
 

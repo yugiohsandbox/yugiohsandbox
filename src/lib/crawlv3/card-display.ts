@@ -2,6 +2,17 @@ import type { Crawlv3CardState, Crawlv3CatalogCard, Crawlv3Zone } from '@/types/
 
 export type Crawlv3CardStat = 'atk' | 'def'
 
+export function getCardStatColor(card: Crawlv3CardState, stat: Crawlv3CardStat, value = card[stat]) {
+  const base = card[stat === 'atk' ? 'baseAtk' : 'baseDef']
+  if (!hasDisplayValue(value) || !hasDisplayValue(base)) return 'text-white'
+  const currentNumber = Number(value)
+  const baseNumber = Number(base)
+  if (!Number.isFinite(currentNumber) || !Number.isFinite(baseNumber)) return 'text-white'
+  if (currentNumber > baseNumber) return 'text-green-400'
+  if (currentNumber < baseNumber) return 'text-red-400'
+  return 'text-white'
+}
+
 export function hasDisplayValue(value: unknown) {
   return value !== undefined && value !== null && String(value).trim().length > 0
 }
